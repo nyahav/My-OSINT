@@ -1,0 +1,29 @@
+services:
+  mysql:
+    image: mysql:8
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: myosint
+      MYSQL_USER: myosintuser
+      MYSQL_PASSWORD: myosintpass
+    ports:
+      - 3306:3306
+    volumes:
+      - ./database/mysql-init.sql:/docker-entrypoint-initdb.d/mysql-init.sql:ro
+      - db_data:/var/lib/mysql
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - 8000:8000
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mysql
+    restart: always
+
+volumes:
+  db_data:

@@ -1,0 +1,96 @@
+services:
+  mongo:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    env_file:
+      - ./database/.env
+    ports:
+      - 127.0.0.1:27017:27017
+    volumes:
+      - ./database/mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
+      - db_data:/data/db
+    networks:
+      - dbnet
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+          cpus: "0.2"
+    restart: always
+
+  redis:
+    image: redis:alpine
+    env_file:
+      - ./database/.env
+    ports:
+      - 127.0.0.1:6379:6379
+    command: /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
+    networks:
+      - dbnet
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+          cpus: "0.2"
+    restart: always
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - 8000:8000
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - dbnet
+      - webnet
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    read_only: true
+    restart: always
+
+  nginx:
+    build:
+      context: ./frontend
+      additional_contexts:
+        nginx: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - 80:80
+    depends_on:
+      - api
+    networks:
+      - webnet
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.2"
+    restart: always
+
+volumes:
+  db_data:
+
+networks:
+  dbnet:
+  webnet:
