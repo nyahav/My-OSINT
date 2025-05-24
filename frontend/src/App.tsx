@@ -2,24 +2,29 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthProvider';
 import Dashboard from './components/Dashboard/Dashboard';
-import Login from './components/Login/Login';
+import Login from './components/Auth/Login';
 import ScanDomain from './components/ScanDomain/ScanDomain';
-import Navbar from './components/Navbar/Navbar';
+import Navbar from './components/UI/Navbar/Navbar';
 import NotFound from './components/NotFound/NotFound';
 import ToastProvider from './components/UI/Toast';
 import BackgroundParticles from './components/UI/BackgroundParticles';
+import Signup from './components/Auth/Signup';
 
 const App: React.FC = () => (
   <AuthProvider>
     <ToastProvider />
-    <BackgroundParticles/>
+    <BackgroundParticles />
     <Router>
-       <Navbar />
+      <div className='min-h-screen'>
+        <Navbar />
+      </div>
       <Routes>
-        <Route path="" element={<Login />} />
+        <Route path="" element={<Dashboard />} />
         <Route path="dashboard" element={<Dashboard />} />
-         <Route path="scandomain" element={<ScanDomain />} />
-         <Route path="*" element={<NotFound />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="scandomain" element={<ScanDomain />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
   </AuthProvider>

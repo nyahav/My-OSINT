@@ -1,35 +1,23 @@
-import pathlib
+import os
 
-import tomllib
-from pydantic_settings import BaseSettings, SettingsConfigDict
+app_name = "MyOSINT"
+app_title = "My OSINT API"
+app_description = "Open Source Intelligence API"
+app_version = "0.1.0"
 
-from app.utilities.enums import Environments
+class Settings:
+    DB_TYPE: str = os.getenv("DB_TYPE", "mysql")  # "mysql" or "postgres"
+    DB_USER: str = os.getenv("DB_USER", "root")
+    DB_PASS: str = os.getenv("DB_PASS", "password")
+    DB_HOST: str = os.getenv("DB_HOST", "localhost")
+    DB_PORT: str = os.getenv("DB_PORT", "3306" if DB_TYPE == "mysql" else "5432")
+    DB_NAME: str = os.getenv("DB_NAME", "myosint")
+    root_path: str = os.getenv("ROOT_PATH", "")
 
-path = pathlib.Path(__file__).parent.absolute()
-with open(f"{path}/../pyproject.toml", mode="rb") as f:
-    project_data = tomllib.load(f)
-
-app_version = project_data["tool"]["poetry"]["version"]
-app_name = project_data["tool"]["poetry"]["name"]
-app_title = project_data["tool"]["metadata"]["title"]
-app_description = project_data["tool"]["metadata"]["full_description"]
-
-
-class Settings(BaseSettings):
-    environment: Environments = Environments.PROD
-    logging_level: str = "INFO"
-    root_path: str = ""
-    ci: bool = False
-    mongo_uri: str
-    mongo_db: str
-    redis_host: str = "127.0.0.1"
-    redis_port: int = 6379
-    redis_password: str
-    jwt_secret_key: str
-    ip_rate_limit_per_minute: int = 100
-    access_token_expire_minutes: int = 3600
-
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-
-
+    @property
+    def DATABASE_URL(self):
+        if self.DB_TYPE == "mysql":
+            return f"mysql+asyncmy://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        else:
+            return f"postgresql://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 settings = Settings()

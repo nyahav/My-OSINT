@@ -171,3 +171,19 @@ When the backend is running, access the API documentation at:
 
 - Swagger UI: `http://localhost:8000`
 - ReDoc: `http://localhost:8000/redoc`
+
+
+
+
+fastapi: Your web framework.
+uvicorn[standard]: The ASGI server to run FastAPI. [standard] installs some optional dependencies for Uvicorn (like httptools and watchfiles) for better performance and development features.
+pydantic: For data validation.
+SQLAlchemy: For database ORM.
+psycopg2-binary: Example database driver for PostgreSQL. Change this if you use a different database.
+For SQLite: No extra driver needed for basic usage, but for async use pip install aiosqlite.
+For MySQL: pip install mysqlclient.
+python-jose[cryptography]: For handling JSON Web Tokens (JWT) for authentication.
+passlib[bcrypt]: For secure password hashing.
+python-dotenv: For loading environment variables (e.g., database connection strings, API keys) from a .env file.
+alembic: For database migrations.
+pytest: For writing and running tests.

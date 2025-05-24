@@ -8,5 +8,3 @@ TOKEN_EXPIRED = "Token has expired"
 INVALID_TOKEN = "Invalid token"
 USER_NOT_FOUND = "User not found"
 
-# Rate limit
-RATE_LIMIT_EXCEED = "Rate limit exceeded, please try again later."

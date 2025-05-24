@@ -22,24 +22,6 @@ services:
           cpus: "0.2"
     restart: always
 
-  redis:
-    image: redis:alpine
-    env_file:
-      - ./database/.env
-    ports:
-      - 127.0.0.1:6379:6379
-    command: /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
-    networks:
-      - dbnet
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.5"
-        reservations:
-          memory: 256M
-          cpus: "0.2"
-    restart: always
 
   api:
     build:
@@ -51,7 +33,6 @@ services:
       - ./backend/.env
     depends_on:
       - mongo
-      - redis
     networks:
       - dbnet
       - webnet
