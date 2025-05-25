@@ -1,28 +1,45 @@
+version: '3.8'
+
 services:
-  mysql:
-    image: mysql:8
+  db: # Renamed from 'mysql' to 'db'
+    build:
+      context: ./database # Build context is the root of your project
+      dockerfile: Dockerfile # Use a new Dockerfile for the DB image, which includes Python/bcrypt
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: myosint
-      MYSQL_USER: myosintuser
-      MYSQL_PASSWORD: myosintpass
+      # PostgreSQL specific environment variables
+      POSTGRES_USER: postgres # From .env, typically 'postgres'
+      POSTGRES_PASSWORD: password # From .env, root password for postgres
+      POSTGRES_DB: myosint # From .env, your application database name
+      POSTGRES_APP_USER: postgres
+      POSTGRES_APP_PASSWORD: password
+      POSTGRES_ADMIN_USERNAME: postgres
+      POSTGRES_ADMIN_PASSWORD: password
+      POSTGRES_ADMIN_EMAIL: admin@example.com
     ports:
-      - 3306:3306
+      - "5432:5432" # PostgreSQL default port
     volumes:
-      - ./database/mysql-init.sql:/docker-entrypoint-initdb.d/mysql-init.sql:ro
-      - db_data:/var/lib/mysql
+      # Mount the data volume for persistence
+      - pgdata:/var/lib/postgresql/data
+      # The init script is copied by Dockerfile.db, so no need to mount it here
+    healthcheck: # Added healthcheck for PostgreSQL
+      test: ["CMD", "pg_isready", "-U", "myosintuser", "-d", "myosint"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s # Give PostgreSQL time to start up
 
   api:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile # Assumes your backend Dockerfile is still in ./backend/Dockerfile
     ports:
-      - 8000:8000
+      - "8000:8000"
     env_file:
-      - ./backend/.env
+      - ./backend/.env # Ensure this .env has the updated DATABASE_URL for Postgres
     depends_on:
-      - mysql
+      db:
+        condition: service_healthy # Ensure DB is healthy before starting API
     restart: always
 
   frontend:
@@ -36,4 +53,4 @@ services:
     restart: always
 
 volumes:
-  db_data:
+  pgdata:

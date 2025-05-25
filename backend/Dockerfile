@@ -1,42 +1,40 @@
-# Build requirements
-FROM python:3.11-alpine AS requirements
-
-# Install Poetry and export plugin
-RUN pip install poetry \
-    && poetry self add poetry-plugin-export
-
-# Copy only necessary Poetry files
-COPY ./pyproject.toml ./poetry.lock /
-RUN poetry export -f requirements.txt --output requirements.txt --without-hashes --without=dev
-
-RUN cat requirements.txt
-
-# Final image
-FROM python:3.11-alpine
-
-# Install required utilities and certifi for CA certificates
-RUN apk add --no-cache shadow \
-    && pip install --upgrade certifi
-
-# Add a non-root user
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
-
-# Set working directory
-WORKDIR /home
-
-# Copy requirements from the requirements stage to the backend directory
-COPY --from=requirements requirements.txt /home/app/
+# Stage 1 - Build requirements using Poetry
+FROM python:3.11-alpine AS builder
 
 # Install dependencies
-RUN python3 -m pip install --no-cache-dir --upgrade -r /home/app/requirements.txt
+RUN apk add --no-cache curl gcc musl-dev libffi-dev openssl-dev build-base
 
-# Copy application code
-COPY ./pyproject.toml /home/
-COPY ./app /home/app
+# Install Poetry
+RUN pip install poetry && poetry self add poetry-plugin-export
 
-# Change ownership and switch user
-RUN chown -R appuser:appgroup /home
+# Copy Poetry files
+COPY pyproject.toml poetry.lock /app/
+WORKDIR /app
+
+# Export requirements.txt
+RUN poetry export -f requirements.txt --output requirements.txt --without-hashes --without=dev
+
+# Stage 2 - Final runtime image
+FROM python:3.11-alpine
+
+# Install only runtime dependencies
+RUN apk add --no-cache libpq postgresql-libs
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /home/app
+
+# Copy requirements and install
+COPY --from=builder /app/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy app code
+COPY ./app ./app
+COPY ./pyproject.toml .
+
+# Use non-root user
 USER appuser
 
-# Start Uvicorn
-CMD [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000" ]
+# Start the app
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

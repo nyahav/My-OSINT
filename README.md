@@ -210,3 +210,6 @@ backend/
     │   └── domain.py
     └── utilities/
         └── __init__.py
+
+
+        Full Asynchronous SQLAlchemy (Recommended for FastAPI)

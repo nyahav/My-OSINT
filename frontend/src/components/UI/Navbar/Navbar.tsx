@@ -5,7 +5,7 @@ import useAuth from '../../../context/useAuth';
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user} = useAuth();
   const toggleMenu = () => setMenuOpen(prev => !prev);
 
   return (

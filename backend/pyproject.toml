@@ -32,6 +32,7 @@ passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 pymongo = "^4.8.0"
 asyncmy = "^0.2.10"
 sqlalchemy = "^2.0"
+asyncpg = "0.29.0"
 
 
 

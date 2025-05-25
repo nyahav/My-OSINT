@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import  useAuth  from "../../context/useAuth";
+import toast from "react-hot-toast";
 
 const Signup = () => {
   const [username, setUsername] = useState("");
@@ -9,9 +10,11 @@ const Signup = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/v1/auth/register", {
+    const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, email, password }),
@@ -21,7 +24,7 @@ const Signup = () => {
       login(user);
       navigate("/dashboard");
     } else {
-      alert("Signup failed");
+      toast.error("Signup failed");
     }
   };
 
