@@ -13,19 +13,19 @@ import Signup from './components/Auth/Signup';
 const App: React.FC = () => (
   <AuthProvider>
     <ToastProvider />
-    <BackgroundParticles />
     <Router>
-      <div className='min-h-screen'>
+      <div className='min-h-screen' style={{ position: 'relative' }}>
+        <BackgroundParticles />
         <Navbar />
+        <Routes>
+          <Route path="" element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="scandomain" element={<ScanDomain />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </div>
-      <Routes>
-        <Route path="" element={<Dashboard />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="scandomain" element={<ScanDomain />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
     </Router>
   </AuthProvider>
 );

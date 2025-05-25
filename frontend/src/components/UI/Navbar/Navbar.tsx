@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react'; // Optional: use Heroicons/lucide
+import useAuth from '../../../context/useAuth';
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-
+  const { user, logout } = useAuth();
   const toggleMenu = () => setMenuOpen(prev => !prev);
 
   return (
@@ -13,7 +14,10 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link to="/" className="text-xl font-bold text-white hover:text-purple-400 transition">
+            <Link
+              to="/"
+              className="text-xl font-bold bg-gradient-to-r from-app-primary to-app-accent bg-clip-text text-transparent hover:scale-105 hover:drop-shadow-glow transition duration-300"
+            >
               MyOSINT
             </Link>
           </div>
@@ -32,12 +36,22 @@ const Navbar = () => {
             >
               Scan Domain
             </Link>
-            <Link
+            { user ? (<Link
               to="/"
               className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white hover:text-black rounded-lg transition"
             >
               Logout
-            </Link>
+            </Link>) : (
+              <Link
+                to="/login"
+                className="px-3 py-1 bg-blue-700 hover:bg-blue-800 text-white hover:text-black rounded-lg transition"
+              >
+                Login
+              </Link> )
+            } 
+            
+
+            
           </div>
 
           {/* Mobile Menu Button */}
