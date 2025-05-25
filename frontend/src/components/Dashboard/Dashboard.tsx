@@ -1,8 +1,7 @@
-import React from "react";
+
 import useAuth from "../../context/useAuth";
 import { useNavigate } from "react-router-dom";
 import DashboardGrid from "./DashboardGrid";
-
 
 
 
@@ -50,14 +49,14 @@ const Dashboard = () => {
         <DashboardGrid />
 
        
-        {/* <div className="flex justify-center">
+        <div className="flex justify-center">
           <button
             onClick={handleLogout}
             className="px-6 py-2 bg-app-danger text-white rounded-lg hover:bg-opacity-80 transition-all font-semibold shadow-md"
           >
             Logout
           </button>
-        </div> */}
+        </div>
       </div>
     </div>
   );

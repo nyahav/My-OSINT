@@ -25,5 +25,15 @@ services:
       - mysql
     restart: always
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - 3000:80
+    depends_on:
+      - api
+    restart: always
+
 volumes:
   db_data:

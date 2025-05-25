@@ -4,10 +4,10 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from app.routers.domain import domain
 from app.config import app_description, app_name, app_title, app_version, settings
 from app.routers import auth
-# from app.routers.domain import domain  # Uncomment if you have domain router
+from app.routers.domain import domain
+
 
 app = FastAPI(
     title=app_title,

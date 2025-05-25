@@ -187,3 +187,26 @@ passlib[bcrypt]: For secure password hashing.
 python-dotenv: For loading environment variables (e.g., database connection strings, API keys) from a .env file.
 alembic: For database migrations.
 pytest: For writing and running tests.
+
+
+backend/
+└── app/
+    ├── main.py
+    ├── config.py
+    ├── db/
+    │   ├── base.py
+    │   ├── session.py
+    │   └── models/
+    │       ├── user.py
+    │       └── domain.py
+    ├── schemas/
+    │   ├── user.py
+    │   └── domain.py
+    ├── crud/
+    │   ├── user.py
+    │   └── domain.py
+    ├── routers/
+    │   ├── auth.py
+    │   └── domain.py
+    └── utilities/
+        └── __init__.py

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import useAuth from '../../context/useAuth';
+
 import toast from 'react-hot-toast';
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const ScanDomain: React.FC = () => {
   const [domain, setDomain] = useState('');

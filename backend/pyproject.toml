@@ -31,6 +31,8 @@ pyjwt = "^2.9.0"
 passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 pymongo = "^4.8.0"
 asyncmy = "^0.2.10"
+sqlalchemy = "^2.0"
+
 
 
 [tool.poetry.group.dev.dependencies]

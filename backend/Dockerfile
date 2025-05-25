@@ -9,6 +9,8 @@ RUN pip install poetry \
 COPY ./pyproject.toml ./poetry.lock /
 RUN poetry export -f requirements.txt --output requirements.txt --without-hashes --without=dev
 
+RUN cat requirements.txt
+
 # Final image
 FROM python:3.11-alpine
 
