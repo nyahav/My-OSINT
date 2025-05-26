@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from app.config import app_description, app_name, app_title, app_version, settings
 from app.routers import auth
-from app.routers.domain import domain
+from app.routers.domain import domain as scan
+
 from dotenv import load_dotenv
 
 # Import the init_db function from your database session module
@@ -57,9 +58,9 @@ app.include_router(
 )
 
 app.include_router(
-    domain.router,
-    prefix="/domain",
-    tags=["domain"],
+    scan.router,
+    prefix="/scan",
+    tags=["scan"],
 )
 
 # --- NEW: Database Initialization on Startup ---

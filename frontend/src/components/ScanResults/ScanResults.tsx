@@ -12,6 +12,7 @@ const ScanResults: React.FC = () => {
   useEffect(() => {
   const interval = setInterval(async () => {
     const token = localStorage.getItem("token");
+    console.log("Sending request for results with token:", token);
     const res = await fetch(`${API_BASE_URL}/scan/${scan_id}/results`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -20,6 +21,7 @@ const ScanResults: React.FC = () => {
 
     if (res.ok) {
       const data = await res.json();
+      console.log("Received scan results:", data);
       setResults(data);
       if (data.status === 'finished') {
         clearInterval(interval);

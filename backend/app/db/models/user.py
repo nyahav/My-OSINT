@@ -2,6 +2,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from app.db.base import Base # Ensure this import path is correct
 from datetime import datetime # Import datetime for default values
+from sqlalchemy.orm import relationship
 
 class User(Base):
     __tablename__ = "users"
@@ -20,5 +21,7 @@ class User(Base):
     updated_by = Column(String(255), nullable=True)
     updated_date = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=True) # Use onupdate for update timestamp
 
+    scans = relationship("Scan", back_populates="user")
+    
     def __repr__(self):
         return f"<User(username='{self.username}', email='{self.email}')>"

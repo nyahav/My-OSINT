@@ -1,254 +1,327 @@
-from fastapi import APIRouter, BackgroundTasks
-from uuid import uuid4
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional, Dict, Any, List
+from datetime import datetime
 import asyncio
-import json
+
+# Assuming these are the correct relative paths
 from app.utilities.logger import logger
-import sys
-import os
-sys.path.append("\tools\security_tools.py") 
-from tools.security_tools import SecurityTools 
+from app.db.session import get_db # You'll need to create this for DB session management
+from app.db.models.scan import Scan, ScanStatus # Import your Scan model and Enum
+from app.crud import scan as crud_scan # Alias to avoid name conflicts
+from app.schemas.scan import ScanCreate, ScanUpdate, ScanOut  # Import your Pydantic schemas
+from tools.security_tools import SecurityTools # This path looks suspicious, might need adjustment
 
-router = APIRouter()
-scans = {}
-security_tools = SecurityTools()  
+# --- Router Initialization ---
+router = APIRouter(prefix="/scans", tags=["Scans"]) # Added prefix and tags for better API structure
+security_tools = SecurityTools()
 
+# --- Helper Functions for Tool Execution (Modified to use DB) ---
 
-async def run_theharvester(scan_id: str, domain: str):
+async def _run_theharvester_and_update_db(db: AsyncSession, scan_id: str, domain: str):
     """
-    Run theHarvester using the containerized tools
+    Runs theHarvester and updates the database with results.
     """
     logger.info(f"Running theHarvester for scan_id={scan_id}, domain={domain}")
+    results = None
+    error_details = None
     try:
-        # Use the SecurityTools class instead of direct subprocess
-        result = await security_tools.run_theharvester(domain, sources="all", timeout=600)
-        
-        if result.get("success"):
+        tool_result = await security_tools.run_theharvester(domain, sources="all", timeout=600)
+
+        if tool_result.get("success"):
             logger.info(f"theHarvester scan complete for scan_id={scan_id}")
-            return result["results"]
+            results = tool_result["results"]
         else:
-            logger.error(f"theHarvester failed: {result.get('error', 'Unknown error')}")
-            return {"error": result.get("error", "theHarvester failed")}
-            
+            error_details = tool_result.get("error", "TheHarvester failed without specific error.")
+            logger.error(f"theHarvester failed for scan_id={scan_id}: {error_details}")
+
     except Exception as e:
-        logger.exception("Exception while running theHarvester")
-        return {"error": "Failed to run theHarvester", "details": str(e)}
+        error_details = f"Exception during theHarvester run: {str(e)}"
+        logger.exception(f"Exception while running theHarvester for scan_id={scan_id}")
 
+    # Update database with results or error
+    await crud_scan.update_scan_results(
+        db,
+        scan_id,
+        theharvester_results=results if results else {"error": error_details},
+        updated_by="system_theharvester_runner" # Example for audit field
+    )
+    # The scan status will be finalized by the main run_scan_task
+    # if this was the only tool or part of a combined run.
 
-async def run_amass(scan_id: str, domain: str):
+async def _run_amass_and_update_db(db: AsyncSession, scan_id: str, domain: str):
     """
-    Run Amass using the containerized tools
+    Runs Amass and updates the database with results.
     """
     logger.info(f"Running Amass for scan_id={scan_id}, domain={domain}")
+    results = None
+    error_details = None
     try:
-        # Use the SecurityTools class instead of direct subprocess
-        result = await security_tools.run_amass(domain, timeout=600)
-        
-        if result.get("success"):
+        tool_result = await security_tools.run_amass(domain, timeout=600)
+
+        if tool_result.get("success"):
             logger.info(f"Amass scan complete for scan_id={scan_id}")
-            # Return the subdomains in a format similar to your original structure
-            return {
-                "subdomains": result["subdomains"],
-                "count": result["count"]
+            results = {
+                "subdomains": tool_result["subdomains"],
+                "count": tool_result["count"]
             }
         else:
-            logger.error(f"Amass failed: {result.get('error', 'Unknown error')}")
-            return {"error": result.get("error", "Amass failed")}
-            
+            error_details = tool_result.get("error", "Amass failed without specific error.")
+            logger.error(f"Amass failed for scan_id={scan_id}: {error_details}")
+
     except Exception as e:
-        logger.exception("Exception while running Amass")
-        return {"error": "Failed to run Amass", "details": str(e)}
+        error_details = f"Exception during Amass run: {str(e)}"
+        logger.exception(f"Exception while running Amass for scan_id={scan_id}")
 
+    # Update database with results or error
+    await crud_scan.update_scan_results(
+        db,
+        scan_id,
+        amass_results=results if results else {"error": error_details},
+        updated_by="system_amass_runner" # Example for audit field
+    )
+    # The scan status will be finalized by the main run_scan_task
 
-async def run_scan(scan_id, domain):
+# --- Main Scan Execution Task (Modified to use DB) ---
+
+async def run_scan_task(db: AsyncSession, scan_id: str):
     """
-    Run both tools concurrently and store results
+    Orchestrates the running of security tools for a scan and updates DB.
+    This function should be run in a background task.
     """
-    logger.info(f"Starting scan tasks for scan_id={scan_id}")
-    
+    logger.info(f"Starting background scan task for scan_id={scan_id}")
+
+    scan = await crud_scan.get_scan_by_id(db, scan_id)
+    if not scan:
+        logger.error(f"Scan {scan_id} not found in DB for background task.")
+        return
+
+    domain = scan.domain
+    tools_enabled = scan.tools_enabled or {"theharvester": True, "amass": True}
+    overall_error_message = None
+
+    # Update scan status to RUNNING
+    await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.RUNNING.value, updated_by="system_scanner")
+    logger.info(f"Scan {scan_id} status updated to RUNNING.")
+
+    tool_tasks = []
+    if tools_enabled.get("theharvester"):
+        tool_tasks.append(_run_theharvester_and_update_db(db, scan_id, domain))
+    if tools_enabled.get("amass"):
+        tool_tasks.append(_run_amass_and_update_db(db, scan_id, domain))
+
+    if not tool_tasks:
+        overall_error_message = "No tools enabled for this scan."
+        logger.warning(f"Scan {scan_id}: {overall_error_message}")
+        await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.ERROR.value, error_message=overall_error_message, updated_by="system_scanner")
+        return
+
     try:
-        # You can still run them separately if you want individual control
-        theharvester_task = asyncio.create_task(run_theharvester(scan_id, domain))
-        
+        # Run all enabled tool tasks concurrently
+        await asyncio.gather(*tool_tasks, return_exceptions=True)
 
-        results = await asyncio.gather(theharvester_task, return_exceptions=True)
+        # After all tools have run, retrieve the latest scan state from DB
+        # to check for individual tool errors and determine overall status.
+        scan_after_tools = await crud_scan.get_scan_by_id(db, scan_id)
+        
+        if not scan_after_tools:
+            overall_error_message = "Scan disappeared during execution."
+            raise ValueError(overall_error_message)
 
-        # Handle results and exceptions
-        theharvester_result = results[0] if not isinstance(results[0], Exception) else {"error": str(results[0])}
+        # Aggregate summary and check for errors from individual tools
+        summary = {
+            "total_subdomains": scan_after_tools.total_subdomains,
+            "total_emails": scan_after_tools.total_emails,
+            "total_ips": scan_after_tools.total_ips
+        }
         
-        scans[scan_id]["theHarvester"] = theharvester_result
+        tool_errors = []
+        if tools_enabled.get("theharvester") and scan_after_tools.theharvester_results and scan_after_tools.theharvester_results.get("error"):
+            tool_errors.append(f"theHarvester: {scan_after_tools.theharvester_results['error']}")
+        if tools_enabled.get("amass") and scan_after_tools.amass_results and scan_after_tools.amass_results.get("error"):
+            tool_errors.append(f"Amass: {scan_after_tools.amass_results['error']}")
         
-        scans[scan_id]["status"] = "finished"
-        
-        logger.info(f"Scan {scan_id} finished")
-        
+        if tool_errors:
+            overall_error_message = "Some tools failed: " + "; ".join(tool_errors)
+            final_status = ScanStatus.ERROR.value
+        else:
+            final_status = ScanStatus.FINISHED.value
+
+        # Update summary and final status
+        await crud_scan.update_scan_results(db, scan_id, summary=summary, updated_by="system_scanner")
+        await crud_scan.update_scan_status(
+            db,
+            scan_id,
+            status=final_status,
+            error_message=overall_error_message,
+            updated_by="system_scanner"
+        )
+        logger.info(f"Scan {scan_id} finalized with status: {final_status}")
+
+    except asyncio.CancelledError:
+        logger.warning(f"Scan {scan_id} was cancelled.")
+        await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.CANCELLED.value, updated_by="system_scanner")
     except Exception as e:
-        logger.exception(f"Exception in scan {scan_id}")
-        scans[scan_id]["status"] = "error"
-        scans[scan_id]["error"] = str(e)
-        
-    # async def run_scan(scan_id, domain):
-    # """
-    # Run both tools concurrently and store results
-    # """
-    # logger.info(f"Starting scan tasks for scan_id={scan_id}")
-    
-    # try:
-    #     # You can still run them separately if you want individual control
-    #     theharvester_task = asyncio.create_task(run_theharvester(scan_id, domain))
-    #     amass_task = asyncio.create_task(run_amass(scan_id, domain))
+        overall_error_message = f"Critical error during scan orchestration: {str(e)}"
+        logger.exception(f"Critical exception in scan {scan_id} orchestration.")
+        await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.ERROR.value, error_message=overall_error_message, updated_by="system_scanner")
 
-    #     results = await asyncio.gather(theharvester_task, amass_task, return_exceptions=True)
+# --- API Endpoints ---
 
-    #     # Handle results and exceptions
-    #     theharvester_result = results[0] if not isinstance(results[0], Exception) else {"error": str(results[0])}
-    #     amass_result = results[1] if not isinstance(results[1], Exception) else {"error": str(results[1])}
-
-    #     scans[scan_id]["theHarvester"] = theharvester_result
-    #     scans[scan_id]["amass"] = amass_result
-    #     scans[scan_id]["status"] = "finished"
-        
-    #     logger.info(f"Scan {scan_id} finished")
-        
-    # except Exception as e:
-    #     logger.exception(f"Exception in scan {scan_id}")
-    #     scans[scan_id]["status"] = "error"
-    #     scans[scan_id]["error"] = str(e)
-
-
-# Alternative: Use the combined scan method
-async def run_combined_scan(scan_id, domain):
+@router.post("/", response_model=ScanOut, status_code=status.HTTP_202_ACCEPTED)
+async def start_scan(
+    scan_create: ScanCreate,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Use the combined scan method from SecurityTools
+    Start a new security scan.
     """
-    logger.info(f"Starting combined scan for scan_id={scan_id}")
+    logger.info(f"Received scan request for domain={scan_create.domain}")
+
+    # Create scan record in DB with PENDING status
+    db_scan = await crud_scan.create_scan(db, scan_create, created_by="api_user") # You might want to get actual user from auth
     
-    try:
-        result = await security_tools.run_combined_scan(domain)
-        
-        # Extract results in the format your frontend expects
-        theharvester_data = result["results"]["theharvester"]
-        amass_data = result["results"]["amass"]
-        
-        scans[scan_id]["theHarvester"] = theharvester_data.get("results") if theharvester_data.get("success") else theharvester_data
-        scans[scan_id]["amass"] = {"subdomains": amass_data.get("subdomains", []), "count": amass_data.get("count", 0)} if amass_data.get("success") else amass_data
-        scans[scan_id]["status"] = "finished"
-        scans[scan_id]["summary"] = result["summary"]
-        
-        logger.info(f"Combined scan {scan_id} finished")
-        
-    except Exception as e:
-        logger.exception(f"Exception in combined scan {scan_id}")
-        scans[scan_id]["status"] = "error"
-        scans[scan_id]["error"] = str(e)
+    if not db_scan:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create scan record.")
+
+    # Add the main scan task to background
+    # Pass a new DB session to the background task to prevent session conflicts
+    background_tasks.add_task(run_scan_task, db_scan.id) # Pass scan_id instead of domain directly
+    
+    return ScanOut.model_validate(db_scan) # Use .model_validate for Pydantic v2 or .from_orm for Pydantic v1
+
+@router.get("/{scan_id}", response_model=ScanOut)
+async def get_scan_details(
+    scan_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get full scan details by scan ID.
+    """
+    logger.info(f"Retrieving full details for scan_id={scan_id}")
+    scan_data = await crud_scan.get_scan_by_id(db, scan_id)
+
+    if not scan_data or not scan_data.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found or soft-deleted.")
+    
+    # Ensure duration is calculated if status is finished/error/cancelled
+    if scan_data.is_completed and not scan_data.duration_seconds:
+        # Re-fetch the scan to get the latest updated duration if it was just calculated
+        # This might happen if the `finished_at` was just set, but the duration calculation
+        # didn't trigger a refresh before this endpoint was called.
+        # However, `update_scan_status` already updates `duration_seconds` before committing.
+        # So, usually, you won't need to explicitly call it here.
+        # If duration is missing, it implies a race condition or a specific scenario not handled.
+        pass # The model's `to_dict` will calculate duration for ongoing scans if `started_at` is present.
+    
+    # Use the to_dict method from the SQLAlchemy model
+    # Or preferably, use Pydantic's from_orm/model_validate
+    return ScanOut.model_validate(scan_data) # Use .model_validate for Pydantic v2 or .from_orm for Pydantic v1
 
 
-@router.post("/scan")
-async def start_scan(data: dict, background_tasks: BackgroundTasks):
+@router.get("/{scan_id}/status", response_model=Dict[str, Any]) # More specific response model if possible
+async def get_scan_status(
+    scan_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Start a new security scan
-    """
-    domain = data.get("domain")
-    if not domain:
-        logger.warning("Scan start request missing domain")
-        return {"error": "No domain provided"}
-    
-    scan_id = str(uuid4())
-    logger.info(f"Received scan request for domain={domain}, assigned scan_id={scan_id}")
-    
-    
-    scans[scan_id] = {
-        "status": "running", 
-        "domain": domain,
-        "theHarvester": None, 
-        "amass": None,
-        "started_at": asyncio.get_event_loop().time()
-    }
-    
-    
-    # Option 1: Use individual tools (maintains your original structure)
-    background_tasks.add_task(run_scan, scan_id, domain)
-    
-    # Option 2: Use combined scan (more efficient)
-    # background_tasks.add_task(run_combined_scan, scan_id, domain)
-    
-    return {"scan_id": scan_id}
-
-
-@router.get("/scan/{scan_id}/results")
-async def get_scan_results(scan_id: str):
-    """
-    Get scan results by scan ID
-    """
-    logger.info(f"Retrieving results for scan_id={scan_id}")
-    
-    scan_data = scans.get(scan_id, {"status": "not_found"})
-    
-    # Add some additional metadata if scan exists
-    if scan_data.get("status") != "not_found":
-        scan_data["scan_id"] = scan_id
-        if scan_data.get("started_at"):
-            current_time = asyncio.get_event_loop().time()
-            scan_data["duration"] = current_time - scan_data["started_at"]
-    
-    return scan_data
-
-
-@router.get("/scan/{scan_id}/status")
-async def get_scan_status(scan_id: str):
-    """
-    Get just the status of a scan (lighter endpoint)
+    Get just the status and basic info of a scan (lighter endpoint).
     """
     logger.info(f"Checking status for scan_id={scan_id}")
-    
-    scan_data = scans.get(scan_id, {"status": "not_found"})
+    scan = await crud_scan.get_scan_by_id(db, scan_id)
+
+    if not scan or not scan.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found or soft-deleted.")
     
     return {
-        "scan_id": scan_id,
-        "status": scan_data.get("status", "not_found"),
-        "domain": scan_data.get("domain"),
-        "has_results": scan_data.get("theHarvester") is not None or scan_data.get("amass") is not None
+        "scan_id": scan.id,
+        "status": scan.status,
+        "domain": scan.domain,
+        "has_results": scan.has_results,
+        "started_at": scan.started_at.isoformat() if scan.started_at else None,
+        "finished_at": scan.finished_at.isoformat() if scan.finished_at else None,
+        "duration_seconds": scan.duration_seconds
     }
 
-
-@router.delete("/scan/{scan_id}")
-async def delete_scan(scan_id: str):
+@router.delete("/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_scan_record(
+    scan_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Delete scan results (cleanup)
+    Soft deletes a scan record (sets is_active to False).
     """
-    if scan_id in scans:
-        del scans[scan_id]
-        logger.info(f"Deleted scan {scan_id}")
-        return {"message": f"Scan {scan_id} deleted"}
-    else:
-        return {"error": "Scan not found"}
+    logger.info(f"Soft deleting scan {scan_id}")
+    success = await crud_scan.delete_scan(db, scan_id, deleted_by="api_user") # You might want to get actual user from auth
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found.")
+    return {} # Return empty response for 204 No Content
 
+# Optional: Add an endpoint for hard deletion, typically for admins only
+# @router.delete("/{scan_id}/hard", status_code=status.HTTP_204_NO_CONTENT)
+# async def hard_delete_scan_record(
+#     scan_id: str,
+#     db: AsyncSession = Depends(get_db)
+# ):
+#     """
+#     Permanently deletes a scan record from the database. (Admin only)
+#     """
+#     logger.warning(f"Hard deleting scan {scan_id}. This action is irreversible.")
+#     success = await crud_scan.hard_delete_scan(db, scan_id)
+#     if not success:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found.")
+#     return {}
 
-@router.get("/scans")
-async def list_scans():
+@router.get("/", response_model=List[ScanOut])
+async def list_scans(
+    db: AsyncSession = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[ScanStatus] = None, # Use the Enum for validation
+    domain: Optional[str] = None,
+    user_id: Optional[int] = None, # If you implement user authentication
+    is_public: Optional[bool] = None,
+    order_by: str = "created_date",
+    order_direction: str = "desc"
+):
     """
-    List all scans with their status
+    List all scans with filtering and pagination.
     """
-    scan_list = []
-    for scan_id, scan_data in scans.items():
-        scan_list.append({
-            "scan_id": scan_id,
-            "status": scan_data.get("status"),
-            "domain": scan_data.get("domain"),
-            "started_at": scan_data.get("started_at")
-        })
-    
-    return {"scans": scan_list, "count": len(scan_list)}
+    logger.info(f"Listing scans with filters: status={status}, domain={domain}, user_id={user_id}")
+    scans_from_db = await crud_scan.get_scans(
+        db, 
+        skip=skip, 
+        limit=limit, 
+        status=status.value if status else None, # Pass enum value to CRUD
+        domain=domain,
+        user_id=user_id,
+        is_public=is_public,
+        order_by=order_by,
+        order_direction=order_direction
+    )
+    return [ScanOut.model_validate(scan) for scan in scans_from_db] # Use .model_validate for Pydantic v2 or .from_orm for Pydantic v1
 
+@router.get("/stats", response_model=Dict[str, Any])
+async def get_overall_scan_stats(
+    db: AsyncSession = Depends(get_db),
+    user_id: Optional[int] = None # Filter stats by user if needed
+):
+    """
+    Retrieve overall scanning statistics.
+    """
+    logger.info(f"Retrieving scan statistics for user_id={user_id}")
+    stats = await crud_scan.get_scan_stats(db, user_id=user_id)
+    return stats
 
-# Health check for the tools
-@router.get("/tools/health")
+@router.get("/tools/health", response_model=Dict[str, Any])
 async def check_tools_health():
     """
-    Check if the security tools are available
+    Check if the security tools are available and responsive.
     """
     try:
         health_status = await security_tools.health_check()
         return health_status
     except Exception as e:
         logger.error(f"Tools health check failed: {e}")
-        return {"status": "unhealthy", "error": str(e)}
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Tools health check failed: {str(e)}")
