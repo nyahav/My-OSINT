@@ -18,6 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('access_token'));
 
   const login = async (token: string) => {
@@ -40,15 +41,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("access_token");
-    if (storedToken) {
-      setToken(storedToken);
-      fetchUserDetails(storedToken)
-        .then(setUser)
-        .catch(() => logout());
-    }
-  }, []);
+  const storedToken = localStorage.getItem("access_token");
+  if (storedToken) {
+    setToken(storedToken);
+    fetchUserDetails(storedToken)
+      .then(setUser)
+      .catch(() => logout())
+      .finally(() => setIsAuthLoading(false));
+  } else {
+    setIsAuthLoading(false); 
+  }
+}, []);
 
+  if (isAuthLoading) {
+    return <p>Checking authentication...</p>; 
+  }
   return (
     <AuthContext.Provider value={{ user, token, login, logout }}>
       {children}

@@ -6,7 +6,11 @@ import toast from 'react-hot-toast';
 const ScanDomain: React.FC = () => {
   const [domain, setDomain] = useState('');
   const navigate = useNavigate();
-  const handleScan = async () => {
+
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  const handleScan = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!domain) {
       toast.error('Please enter a domain');
       return;
@@ -15,7 +19,7 @@ const ScanDomain: React.FC = () => {
       // Send domain to backend to start scan
       const token = localStorage.getItem("token");
       console.log("Token being sent:", token);
-      const res = await fetch('/domain/scan', {
+      const res = await fetch(`${API_BASE_URL}/domain/scan`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -25,6 +29,7 @@ const ScanDomain: React.FC = () => {
       });
       if (!res.ok) throw new Error('Failed to start scan');
       const { scan_id } = await res.json();
+      console.log("Scan ID:", scan_id);
       toast.success('Scan started!');
       
       navigate(`/scan-results/${scan_id}`);
@@ -64,11 +69,6 @@ const ScanDomain: React.FC = () => {
             Scan
           </button>
         </form>
-
-        {/* This could later show results */}
-        {/* <div className="text-sm text-app-accent mt-4">
-          Results will be displayed here...
-        </div> */}
       </div>
     </div>
   );

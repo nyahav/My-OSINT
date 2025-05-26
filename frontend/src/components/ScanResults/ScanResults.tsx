@@ -1,25 +1,39 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 const ScanResults: React.FC = () => {
   const { scan_id } = useParams();
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  
   useEffect(() => {
-    const interval = setInterval(async () => {
-      const res = await fetch(`/api/scan/${scan_id}/results`);
-      if (res.ok) {
-        const data = await res.json();
-        setResults(data);
-        if (data.status === 'finished') {
-          clearInterval(interval);
-          setLoading(false);
-        }
+  const interval = setInterval(async () => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_BASE_URL}/scan/${scan_id}/results`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setResults(data);
+      if (data.status === 'finished') {
+        clearInterval(interval);
+        setLoading(false);
       }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [scan_id]);
+    } else if (res.status === 401) {
+      // Optional: Handle unauthorized error gracefully
+      setLoading(false);
+      navigate("/login") // Or use navigate("/login")
+    }
+  }, 2000);
+  
+  return () => clearInterval(interval);
+}, [scan_id]);
 
   return (
     <div style={{ maxWidth: 600, margin: '2rem auto', textAlign: 'center' }}>

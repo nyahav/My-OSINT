@@ -17,10 +17,16 @@ RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
 # Stage 2 - Final runtime image
 FROM python:3.11-alpine
 
-# Install only runtime dependencies
-RUN apk add --no-cache libpq postgresql-libs
+# Install runtime dependencies including tools for network operations
+RUN apk add --no-cache \
+    libpq \
+    postgresql-libs \
+    curl \
+    wget \
+    ca-certificates \
+    docker-cli
 
-# Create non-root user
+# Create non-root user and group
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /home/app
@@ -33,8 +39,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ./app ./app
 COPY ./pyproject.toml .
 
-# Use non-root user
+# Create shared directory for communication with tools container
+RUN mkdir -p /home/app/shared && chown -R appuser:appgroup /home/app/shared
+
+# Use the non-root user
 USER appuser
+
+# Expose port
+EXPOSE 8000
 
 # Start the app
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
