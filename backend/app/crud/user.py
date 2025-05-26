@@ -42,8 +42,6 @@ async def create_user(db: AsyncSession, user: UserCreate, hashed_password: str) 
         username=user.username,
         hashed_password=hashed_password,
         email=user.email,
-        first_name=user.first_name,       # Passed from schema (Optional)
-        last_name=user.last_name,         # Passed from schema (Optional)
         is_active=user.is_active,         # Passed from schema (with default)
         created_by=user.username,         # Set creator to the username for initial creation
         updated_by=user.username,         # Set updater to the username for initial creation
@@ -73,7 +71,7 @@ async def update_user(db: AsyncSession, user_id: int, user_update: UserOut) -> O
     # After update, fetch the updated user to return it
     return await get_user_by_id(db, user_id)
 
-# Function to delete a user (optional)
+
 async def delete_user(db: AsyncSession, user_id: int) -> bool:
     """
     Deletes a user from the database by their ID.
@@ -84,3 +82,7 @@ async def delete_user(db: AsyncSession, user_id: int) -> bool:
         await db.commit()
         return True
     return False
+
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
+    result = await db.execute(select(User).filter(User.email == email))
+    return result.scalars().first()

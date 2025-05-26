@@ -20,8 +20,9 @@ const Signup = () => {
       body: JSON.stringify({ username, email, password }),
     });
     if (res.ok) {
-      const user = await res.json();
-      login(user);
+      const data = await res.json();
+      login(data.access_token);
+      localStorage.setItem("token", data.access_token);
       navigate("/dashboard");
     } else {
       toast.error("Signup failed");

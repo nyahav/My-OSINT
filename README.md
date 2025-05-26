@@ -213,3 +213,12 @@ backend/
 
 
         Full Asynchronous SQLAlchemy (Recommended for FastAPI)
+
+
+        Display results more nicely
+
+Add scan progress bar
+
+Protect the results with role-based access (e.g., admin only)
+
+Store results in DB

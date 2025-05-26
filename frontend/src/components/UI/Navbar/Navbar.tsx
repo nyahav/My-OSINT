@@ -1,12 +1,18 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link,  redirect } from 'react-router-dom';
 import { Menu, X } from 'lucide-react'; // Optional: use Heroicons/lucide
 import useAuth from '../../../context/useAuth';
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user} = useAuth();
+  const { user,logout} = useAuth();
   const toggleMenu = () => setMenuOpen(prev => !prev);
+
+  const handleLogout = () => {
+  logout(); 
+  setMenuOpen(false); 
+  redirect('/'); 
+  };
 
   return (
     <nav className="bg-slate-900 text-white shadow-md sticky top-0 z-50">
@@ -37,6 +43,7 @@ const Navbar = () => {
               Scan Domain
             </Link>
             { user ? (<Link
+              onClick={logout}
               to="/"
               className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white hover:text-black rounded-lg transition"
             >
@@ -86,8 +93,9 @@ const Navbar = () => {
           </Link>
           <Link
             to="/"
+            onClick={handleLogout}
             className="block text-gray-300 hover:text-white hover:bg-red-600 px-3 py-2 rounded-md transition"
-            onClick={() => setMenuOpen(false)}
+            
           >
             Logout
           </Link>

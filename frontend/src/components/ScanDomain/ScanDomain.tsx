@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
-
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Link } from 'react-router-dom';
+
 
 const ScanDomain: React.FC = () => {
   const [domain, setDomain] = useState('');
-  //const { user, logout } = useAuth();
-
- 
-//   if (!user) {
-//     return <p>Loading...</p>;
-//   }
+  const navigate = useNavigate();
   const handleScan = async () => {
     if (!domain) {
       toast.error('Please enter a domain');
@@ -18,16 +13,21 @@ const ScanDomain: React.FC = () => {
     }
     try {
       // Send domain to backend to start scan
-      const res = await fetch('/api/scan', {
+      const token = localStorage.getItem("token");
+      console.log("Token being sent:", token);
+      const res = await fetch('/domain/scan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`  
+         },
         body: JSON.stringify({ domain }),
       });
       if (!res.ok) throw new Error('Failed to start scan');
       const { scan_id } = await res.json();
       toast.success('Scan started!');
-      // Navigate to results page
-      <Link to={`/scan-results/${scan_id}`} />
+      
+      navigate(`/scan-results/${scan_id}`);
     } catch (err) {
       toast.error('Failed to start scan');
     }
@@ -40,11 +40,11 @@ const ScanDomain: React.FC = () => {
           OSINT Domain Scanner
         </h1>
 
-        <p className="text-app-secondary text-center text-sm">
-          Enter a domain to perform Open Source Intelligence gathering using
+        <p className="text-app-secondary text-center text-base">
+          Enter a domain to perform Open Source Intelligence gathering<br /> using
           industry-standard tools like{" "}
           <span className="text-app-accent font-semibold">theHarvester</span> and{" "}
-          <span className="text-app-accent font-semibold">Amass</span>. The results
+          <span className="text-app-accent font-semibold">Amass</span>. <br />The results
           will include emails, subdomains, hosts, and public metadata.
         </p>
 

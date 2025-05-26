@@ -21,9 +21,10 @@ services:
     volumes:
       # Mount the data volume for persistence
       - pgdata:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d
       # The init script is copied by Dockerfile.db, so no need to mount it here
     healthcheck: # Added healthcheck for PostgreSQL
-      test: ["CMD", "pg_isready", "-U", "myosintuser", "-d", "myosint"]
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "myosint"]
       interval: 10s
       timeout: 5s
       retries: 5

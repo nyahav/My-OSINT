@@ -43,8 +43,6 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         username VARCHAR(255) NOT NULL UNIQUE,
         hashed_password VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL,
-        first_name VARCHAR(255),
-        last_name VARCHAR(255),
         admin BOOLEAN DEFAULT FALSE,
         active BOOLEAN DEFAULT TRUE,
         created_by VARCHAR(255),
@@ -54,7 +52,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     );
 
     -- Insert admin user (ON CONFLICT handles updates if user already exists)
-    INSERT INTO users (username, hashed_password, email, first_name, last_name, admin, active, created_by, created_date, updated_by, updated_date)
+    INSERT INTO users (username, hashed_password, email, admin, active, created_by, created_date, updated_by, updated_date)
     VALUES ('${POSTGRES_ADMIN_USERNAME}', '${ADMIN_PASSWORD_HASH}', '${POSTGRES_ADMIN_EMAIL}', 'admin', 'admin', TRUE, TRUE, '${POSTGRES_ADMIN_USERNAME}', NOW(), '${POSTGRES_ADMIN_USERNAME}', NOW())
     ON CONFLICT (username) DO UPDATE SET
         hashed_password = EXCLUDED.hashed_password,

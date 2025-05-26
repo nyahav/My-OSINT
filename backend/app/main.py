@@ -7,11 +7,12 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import app_description, app_name, app_title, app_version, settings
 from app.routers import auth
 from app.routers.domain import domain
+from dotenv import load_dotenv
 
 # Import the init_db function from your database session module
 # Assuming it's in app/db/session.py and named init_db
 from app.db.session import init_db # <--- ADD THIS LINE
-
+load_dotenv()
 app = FastAPI(
     title=app_title,
     description=app_description,

@@ -15,9 +15,6 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False) # Changed from 'admin' to 'is_admin' for consistency
 
-    # Additional columns to match the postgres-init.sh schema
-    first_name = Column(String(255), nullable=True) # Assuming these can be null
-    last_name = Column(String(255), nullable=True)  # Assuming these can be null
     created_by = Column(String(255), nullable=True)
     created_date = Column(DateTime, default=datetime.now, nullable=True) # Use datetime.now for creation timestamp
     updated_by = Column(String(255), nullable=True)

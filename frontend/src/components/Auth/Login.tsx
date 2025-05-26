@@ -25,8 +25,10 @@ const Login = () => {
       });
 
       if (res.ok) {
-        const user = await res.json();
-        login(user);
+        const data = await res.json();
+        console.log("Login successful:", data);
+        login(data.access_token);
+        localStorage.setItem("token", data.access_token);
         navigate("/dashboard");
       } else {
         

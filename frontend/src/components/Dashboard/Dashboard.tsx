@@ -7,13 +7,10 @@ import DashboardGrid from "./DashboardGrid";
 
 
 const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
+
 
   return (
     <div className="min-h-screen bg-app-bg text-app-text flex flex-col items-center  p-6">
@@ -21,15 +18,9 @@ const Dashboard = () => {
         {/* Conditional Rendering based on user login status */}
         {user ? (
           <div className="flex justify-center">
-          <h1 className="text-3xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-app-primary to-app-accent">
-            Welcome, {user.first_name || user.username}!
+          <h1 className="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-app-primary to-app-accent">
+            Welcome, { user.username}!
           </h1>
-          <button
-            onClick={handleLogout}
-            className="px-6 py-2 bg-app-danger text-white rounded-lg hover:bg-opacity-80 transition-all font-semibold shadow-md"
-          >
-            Logout
-          </button>
         </div>
         ) : (
           <div className="text-center space-y-4">

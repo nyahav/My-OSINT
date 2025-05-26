@@ -9,6 +9,8 @@ import NotFound from './components/NotFound/NotFound';
 import ToastProvider from './components/UI/Toast';
 import BackgroundParticles from './components/UI/BackgroundParticles';
 import Signup from './components/Auth/Signup';
+import ProtectedRoute from './components/Auth/ProtectedRoute';
+import ScanResults from './components/ScanResults/ScanResults';
 
 const App: React.FC = () => (
   <AuthProvider>
@@ -22,7 +24,8 @@ const App: React.FC = () => (
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="scandomain" element={<ScanDomain />} />
+          <Route path="scandomain" element={<ProtectedRoute>{<ScanDomain />}</ProtectedRoute>} />
+          <Route path="/scan-results/:scan_id" element={<ProtectedRoute><ScanResults /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
