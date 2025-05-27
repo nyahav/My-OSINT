@@ -17,7 +17,6 @@ def test_health_check(client: TestClient):
 def test_tools_health_check(client: TestClient):
     """Test tools health check"""
     response = client.get("/domain/tools/health")
-    # יכול להיות 200 או 500 תלוי אם הכלים זמינים
     assert response.status_code in [200, 500]
     assert "error" in response.json() or "status" in response.json()
 
