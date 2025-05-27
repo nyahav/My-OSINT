@@ -6,7 +6,7 @@ It provides user management, secure authentication, smart data queries, and an i
 ---
 
 ## 📸 Screenshot
-> 🖼️ A screenshot of the application will appear here
+![Screenshot of the app](images/OSINT-screenshot.png)
 
 ---
 
@@ -102,7 +102,10 @@ Sign up via the app's registration form using:
 - Email
 - Password
 
-### Running the Application
+### Running the Application-Three-command quick-start
 
 ```bash
-docker-compose up --build
+git clone https://github.com/nyahav/My-OSINT.git 
+(cd My-OSINT)
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml build 
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
