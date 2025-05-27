@@ -64,5 +64,5 @@ class ScanOut(ScanBase):
     
     class Config:
         from_attributes = True # Pydantic v2.0+
-        # or orm_mode = True # Pydantic v1.x
+        
         use_enum_values = True # Ensures enum values are returned as strings

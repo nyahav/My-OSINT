@@ -3,20 +3,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import asyncio
+from app.db.session import AsyncSessionLocal
 
-# Assuming these are the correct relative paths
 from app.utilities.logger import logger
-from app.db.session import get_db # You'll need to create this for DB session management
-from app.db.models.scan import Scan, ScanStatus # Import your Scan model and Enum
-from app.crud import scan as crud_scan # Alias to avoid name conflicts
-from app.schemas.scan import ScanCreate, ScanUpdate, ScanOut  # Import your Pydantic schemas
-from tools.security_tools import SecurityTools # This path looks suspicious, might need adjustment
+from app.db.session import get_db 
+from app.db.models.scan import Scan, ScanStatus
+from app.crud import scan as crud_scan 
+from app.schemas.scan import ScanCreate, ScanUpdate, ScanOut 
+from tools.security_tools import SecurityTools 
 
-# --- Router Initialization ---
-router = APIRouter(prefix="/scans", tags=["Scans"]) # Added prefix and tags for better API structure
+router = APIRouter() 
 security_tools = SecurityTools()
 
-# --- Helper Functions for Tool Execution (Modified to use DB) ---
+
+def deduplicate_results(results: dict, keys: List[str] = ["emails", "hosts", "subdomains", "ips"]) -> dict:
+    """
+    Remove duplicates from lists in results dict for the given keys.
+    """
+    for key in keys:
+        if key in results and isinstance(results[key], list):
+            results[key] = list(dict.fromkeys(results[key]))
+    return results
 
 async def _run_theharvester_and_update_db(db: AsyncSession, scan_id: str, domain: str):
     """
@@ -26,11 +33,13 @@ async def _run_theharvester_and_update_db(db: AsyncSession, scan_id: str, domain
     results = None
     error_details = None
     try:
-        tool_result = await security_tools.run_theharvester(domain, sources="all", timeout=600)
+        tool_result = await security_tools.run_theharvester(domain, sources="all", timeout=180)
 
         if tool_result.get("success"):
             logger.info(f"theHarvester scan complete for scan_id={scan_id}")
             results = tool_result["results"]
+            results = deduplicate_results(tool_result["results"])
+            
         else:
             error_details = tool_result.get("error", "TheHarvester failed without specific error.")
             logger.error(f"theHarvester failed for scan_id={scan_id}: {error_details}")
@@ -84,87 +93,84 @@ async def _run_amass_and_update_db(db: AsyncSession, scan_id: str, domain: str):
 
 # --- Main Scan Execution Task (Modified to use DB) ---
 
-async def run_scan_task(db: AsyncSession, scan_id: str):
-    """
-    Orchestrates the running of security tools for a scan and updates DB.
-    This function should be run in a background task.
-    """
-    logger.info(f"Starting background scan task for scan_id={scan_id}")
+async def run_scan_task(scan_id: str):
+    async with AsyncSessionLocal() as db:
+        logger.info(f"Starting background scan task for scan_id={scan_id}")
 
-    scan = await crud_scan.get_scan_by_id(db, scan_id)
-    if not scan:
-        logger.error(f"Scan {scan_id} not found in DB for background task.")
-        return
+        scan = await crud_scan.get_scan_by_id(db, scan_id)
+        if not scan:
+            logger.error(f"Scan {scan_id} not found in DB for background task.")
+            return
 
-    domain = scan.domain
-    tools_enabled = scan.tools_enabled or {"theharvester": True, "amass": True}
-    overall_error_message = None
+        domain = scan.domain
+        tools_enabled = scan.tools_enabled or {"theharvester": True, "amass": False}  # Default to both tools if not specified
+        overall_error_message = None
 
-    # Update scan status to RUNNING
-    await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.RUNNING.value, updated_by="system_scanner")
-    logger.info(f"Scan {scan_id} status updated to RUNNING.")
+        # Update scan status to RUNNING
+        await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.RUNNING.value, updated_by="system_scanner")
+        logger.info(f"Scan {scan_id} status updated to RUNNING.")
 
-    tool_tasks = []
-    if tools_enabled.get("theharvester"):
-        tool_tasks.append(_run_theharvester_and_update_db(db, scan_id, domain))
-    if tools_enabled.get("amass"):
-        tool_tasks.append(_run_amass_and_update_db(db, scan_id, domain))
+        tool_tasks = []
+        if tools_enabled.get("theharvester"):
+            tool_tasks.append(_run_theharvester_and_update_db(db, scan_id, domain))
+        #if tools_enabled.get("amass"):
+        #    tool_tasks.append(_run_amass_and_update_db(db, scan_id, domain))
 
-    if not tool_tasks:
-        overall_error_message = "No tools enabled for this scan."
-        logger.warning(f"Scan {scan_id}: {overall_error_message}")
-        await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.ERROR.value, error_message=overall_error_message, updated_by="system_scanner")
-        return
+        if not tool_tasks:
+            overall_error_message = "No tools enabled for this scan."
+            logger.warning(f"Scan {scan_id}: {overall_error_message}")
+            await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.ERROR.value, error_message=overall_error_message, updated_by="system_scanner")
+            return
 
-    try:
-        # Run all enabled tool tasks concurrently
-        await asyncio.gather(*tool_tasks, return_exceptions=True)
+        try:
+            # Run all enabled tool tasks concurrently
+            await asyncio.gather(*tool_tasks, return_exceptions=True)
 
-        # After all tools have run, retrieve the latest scan state from DB
-        # to check for individual tool errors and determine overall status.
-        scan_after_tools = await crud_scan.get_scan_by_id(db, scan_id)
-        
-        if not scan_after_tools:
-            overall_error_message = "Scan disappeared during execution."
-            raise ValueError(overall_error_message)
+            # After all tools have run, retrieve the latest scan state from DB
+            # to check for individual tool errors and determine overall status.
+            scan_after_tools = await crud_scan.get_scan_by_id(db, scan_id)
+            
+            if not scan_after_tools:
+                overall_error_message = "Scan disappeared during execution."
+                raise ValueError(overall_error_message)
 
-        # Aggregate summary and check for errors from individual tools
-        summary = {
-            "total_subdomains": scan_after_tools.total_subdomains,
-            "total_emails": scan_after_tools.total_emails,
-            "total_ips": scan_after_tools.total_ips
-        }
-        
-        tool_errors = []
-        if tools_enabled.get("theharvester") and scan_after_tools.theharvester_results and scan_after_tools.theharvester_results.get("error"):
-            tool_errors.append(f"theHarvester: {scan_after_tools.theharvester_results['error']}")
-        if tools_enabled.get("amass") and scan_after_tools.amass_results and scan_after_tools.amass_results.get("error"):
-            tool_errors.append(f"Amass: {scan_after_tools.amass_results['error']}")
-        
-        if tool_errors:
-            overall_error_message = "Some tools failed: " + "; ".join(tool_errors)
-            final_status = ScanStatus.ERROR.value
-        else:
-            final_status = ScanStatus.FINISHED.value
+            # Aggregate summary and check for errors from individual tools
+            summary = {
+                "total_subdomains": scan_after_tools.total_subdomains,
+                "total_emails": scan_after_tools.total_emails,
+                "total_ips": scan_after_tools.total_ips
+            }
+            
+            tool_errors = []
+            if tools_enabled.get("theharvester") and scan_after_tools.theharvester_results and scan_after_tools.theharvester_results.get("error"):
+                tool_errors.append(f"theHarvester: {scan_after_tools.theharvester_results['error']}")
+            # if tools_enabled.get("amass") and scan_after_tools.amass_results and scan_after_tools.amass_results.get("error"):
+            #     tool_errors.append(f"Amass: {scan_after_tools.amass_results['error']}")
+            
+            if tool_errors:
+                overall_error_message = "Some tools failed: " + "; ".join(tool_errors)
+                final_status = ScanStatus.ERROR.value
+            else:
+                final_status = ScanStatus.FINISHED.value
 
-        # Update summary and final status
-        await crud_scan.update_scan_results(db, scan_id, summary=summary, updated_by="system_scanner")
-        await crud_scan.update_scan_status(
-            db,
-            scan_id,
-            status=final_status,
-            error_message=overall_error_message,
-            updated_by="system_scanner"
-        )
-        logger.info(f"Scan {scan_id} finalized with status: {final_status}")
+            # Update summary and final status
+            await crud_scan.update_scan_results(db, scan_id, summary=summary, updated_by="system_scanner")
+            await crud_scan.update_scan_status(
+                db,
+                scan_id,
+                status=final_status,
+                error_message=overall_error_message,
+                updated_by="system_scanner"
+            )
+            logger.info(f"Scan {scan_id} finalized with status: {final_status}")
 
-    except asyncio.CancelledError:
-        logger.warning(f"Scan {scan_id} was cancelled.")
-        await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.CANCELLED.value, updated_by="system_scanner")
-    except Exception as e:
-        overall_error_message = f"Critical error during scan orchestration: {str(e)}"
-        logger.exception(f"Critical exception in scan {scan_id} orchestration.")
-        await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.ERROR.value, error_message=overall_error_message, updated_by="system_scanner")
+        except asyncio.CancelledError:
+            logger.warning(f"Scan {scan_id} was cancelled.")
+            await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.CANCELLED.value, updated_by="system_scanner")
+        except Exception as e:
+            overall_error_message = f"Critical error during scan orchestration: {str(e)}"
+            logger.exception(f"Critical exception in scan {scan_id} orchestration.")
+            await crud_scan.update_scan_status(db, scan_id, status=ScanStatus.ERROR.value, error_message=overall_error_message, updated_by="system_scanner")
 
 # --- API Endpoints ---
 
@@ -174,23 +180,48 @@ async def start_scan(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Start a new security scan.
-    """
-    logger.info(f"Received scan request for domain={scan_create.domain}")
-
-    # Create scan record in DB with PENDING status
-    db_scan = await crud_scan.create_scan(db, scan_create, created_by="api_user") # You might want to get actual user from auth
     
+    logger.info(f"Received scan request for domain={scan_create.domain}")
+    db_scan = await crud_scan.create_scan(db, scan_create, created_by="api_user") 
+    if not db_scan:
+     logger.error("Failed to create scan record! Check DB and migrations.")
+     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create scan record.")
     if not db_scan:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create scan record.")
 
-    # Add the main scan task to background
-    # Pass a new DB session to the background task to prevent session conflicts
-    background_tasks.add_task(run_scan_task, db_scan.id) # Pass scan_id instead of domain directly
-    
-    return ScanOut.model_validate(db_scan) # Use .model_validate for Pydantic v2 or .from_orm for Pydantic v1
+    background_tasks.add_task(run_scan_task, db_scan.id)     
+    return ScanOut.model_validate(db_scan) 
 
+
+
+@router.get("/{scan_id}/results", response_model=Dict[str, Any])
+async def get_scan_results(
+    scan_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get scan results by scan ID (for frontend polling).
+    """
+    logger.info(f"Retrieving results for scan_id={scan_id}")
+    scan = await crud_scan.get_scan_by_id(db, scan_id)
+    if not scan or not scan.is_active:
+        raise HTTPException(status_code=404, detail="Scan not found or soft-deleted.")
+
+    
+    return {
+        "scan_id": scan.id,
+        "status": scan.status,
+        "theHarvester": scan.theharvester_results,
+        "amass": scan.amass_results,
+        "summary": scan.summary,
+        "error": scan.error_message,
+        "started_at": scan.started_at.isoformat() if scan.started_at else None,
+        "finished_at": scan.finished_at.isoformat() if scan.finished_at else None,
+        "duration_seconds": scan.duration_seconds,
+        "domain": scan.domain,
+    }
+    
+    
 @router.get("/{scan_id}", response_model=ScanOut)
 async def get_scan_details(
     scan_id: str,

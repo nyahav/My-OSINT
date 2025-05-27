@@ -10,9 +10,7 @@ from app.routers.domain import domain as scan
 
 from dotenv import load_dotenv
 
-# Import the init_db function from your database session module
-# Assuming it's in app/db/session.py and named init_db
-from app.db.session import init_db # <--- ADD THIS LINE
+from app.db.session import init_db 
 load_dotenv()
 app = FastAPI(
     title=app_title,
@@ -71,6 +69,7 @@ async def on_startup():
     It calls the init_db function to ensure database tables are created.
     """
     print("Application startup: Initializing database...")
+    from app.db.models import user, scan
     await init_db()
     print("Database initialization complete.")
 # --- END NEW ---

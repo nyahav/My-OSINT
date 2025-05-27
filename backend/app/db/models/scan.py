@@ -1,10 +1,18 @@
 # app/db/models/scan.py
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, ForeignKey
+from sqlalchemy import Column, Enum, Integer, String, Boolean, DateTime, Text, JSON, ForeignKey
 from sqlalchemy.orm import relationship
-from app.db.base import Base  # Ensure this import path is correct
-from datetime import datetime  # Import datetime for default values
+from app.db.base import Base 
+from datetime import datetime  
 import uuid
+from enum import Enum
 
+class ScanStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    FINISHED = "finished"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+    
 class Scan(Base):
     __tablename__ = "scans"
 

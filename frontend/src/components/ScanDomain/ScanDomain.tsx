@@ -19,7 +19,7 @@ const ScanDomain: React.FC = () => {
       // Send domain to backend to start scan
       const token = localStorage.getItem("token");
       console.log("Token being sent:", token);
-      const res = await fetch(`${API_BASE_URL}/domain/scan`, {
+      const res = await fetch(`${API_BASE_URL}/scan/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -28,11 +28,11 @@ const ScanDomain: React.FC = () => {
         body: JSON.stringify({ domain }),
       });
       if (!res.ok) throw new Error('Failed to start scan');
-      const { scan_id } = await res.json();
-      console.log("Scan ID:", scan_id);
+      const { id } = await res.json();
+      console.log("Scan ID:", id);
       toast.success('Scan started!');
       
-      navigate(`/scan-results/${scan_id}`);
+      navigate(`/scan-results/${id}`);
     } catch (err) {
       toast.error('Failed to start scan');
     }

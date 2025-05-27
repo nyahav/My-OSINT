@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: myosint
+      POSTGRES_DB: postgres
       POSTGRES_APP_USER: postgres
       POSTGRES_APP_PASSWORD: password
       POSTGRES_ADMIN_USERNAME: postgres
@@ -21,7 +21,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./database:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "myosint"]
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
