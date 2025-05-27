@@ -89,7 +89,12 @@ return (
               <h2 className="text-2xl font-semibold text-app-accent mb-2">Total</h2>
                 <ScanSummaryCard
                   title="Summary"
-                  summary={results.summary}
+                  summary={{
+                    total_subdomains: results.summary.total_subdomains || 0,
+                    total_emails: results.summary.total_emails || 0,
+                    total_hosts: results.summary.total_hosts || 0,
+                    total_ips: results.summary.total_ips || 0,
+                  }}
                   isSummary={true}
                 />
             </div>
