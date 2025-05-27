@@ -15,14 +15,11 @@ class SecurityTools:
         Run Amass subdomain enumeration
         """
         logger.info(f"Starting Amass scan for domain: {domain}")
-        output_file_name = f"amass_output_{domain.replace('.', '_')}.json"
-        tools_output_path = f"/home/tools/shared/{output_file_name}" 
-        api_output_path = f"{self.shared_dir}/{output_file_name}" # Use self.shared_dir
-
+        
         try:
             cmd = [
                 "docker", "exec", self.tools_container,
-                "amass", "enum", "-d", domain, "-json", tools_output_path
+                "amass", "enum",  "-passive" ,"-d", domain
             ]
             logger.debug(f"Executing Amass command: {' '.join(cmd)}")
 
@@ -31,47 +28,43 @@ class SecurityTools:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            
             try:
                 stdout, stderr = await asyncio.wait_for(
                     process.communicate(), 
                     timeout=timeout
                 )
             except asyncio.TimeoutError:
-                process.kill()
                 logger.error(f"Amass scan for {domain} timed out after {timeout} seconds.")
-                return {"error": f"Amass scan for {domain} timed out", "success": False}
-            
-            if process.returncode == 0:
-                logger.info(f"Amass scan for {domain} completed successfully. Reading results from {api_output_path}")
-                results = []
+                # Try to get whatever output is available before killing
                 try:
-                    with open(api_output_path, 'r') as f:
-                        for line in f:
-                            if line.strip():
-                                try:
-                                    results.append(json.loads(line.strip()))
-                                except json.JSONDecodeError as jde:
-                                    logger.warning(f"Skipping malformed JSON line in Amass output for {domain}: {line.strip()} - {jde}")
-                                    continue # Skip malformed lines
-                except FileNotFoundError:
-                    logger.error(f"Amass output file not found at {api_output_path} for domain {domain}")
-                    return {"error": "Amass output file not found", "success": False}
-                except Exception as file_read_e:
-                    logger.error(f"Error reading Amass output file {api_output_path} for domain {domain}: {file_read_e}")
-                    return {"error": f"Error reading Amass output: {str(file_read_e)}", "success": False}
-                finally:
-                    # Clean up the output file after reading
-                    if os.path.exists(api_output_path):
-                        os.remove(api_output_path)
-                        logger.debug(f"Removed Amass output file: {api_output_path}")
-                
-                logger.info(f"Successfully processed Amass results for {domain}. Found {len(results)} entries.")
+                    process.kill()
+                    stdout, stderr = await process.communicate()
+                    output = stdout.decode().splitlines()
+                    subdomains = [line.strip() for line in output if line.strip()]
+                    logger.warning(f"Partial Amass results for {domain} due to timeout. Found {len(subdomains)} subdomains.")
+                    return {
+                        "success": True,
+                        "tool": "amass",
+                        "domain": domain,
+                        "subdomains": subdomains,
+                        "count": len(subdomains),
+                        "partial": True,
+                        "error": f"Timeout after {timeout} seconds"
+                    }
+                except Exception as e:
+                    logger.error(f"Failed to retrieve partial Amass results after timeout: {e}")
+                    return {"error": f"Amass scan for {domain} timed out and no results could be retrieved", "success": False}
+
+            if process.returncode == 0:
+                output = stdout.decode().splitlines()
+                subdomains = [line.strip() for line in output if line.strip()]
+                logger.info(f"Successfully processed Amass results for {domain}. Found {len(subdomains)} subdomains.")
                 return {
                     "success": True,
                     "tool": "amass",
                     "domain": domain,
-                    "results": results
+                    "subdomains": subdomains,
+                    "count": len(subdomains)
                 }
             else:
                 error_message = stderr.decode().strip()

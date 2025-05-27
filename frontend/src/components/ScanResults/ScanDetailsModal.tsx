@@ -42,7 +42,7 @@ const ScanDetailsModal: React.FC<ScanDetailsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6 relative">
+      <div className="bg-white/90 rounded-xl shadow-lg max-w-2xl w-full p-6 relative">
         <button
           className="absolute top-2 right-4 text-xl text-gray-500 hover:text-red-500"
           onClick={onClose}
@@ -60,7 +60,7 @@ const ScanDetailsModal: React.FC<ScanDetailsModalProps> = ({
               Object.entries(results).map(([key, value]) =>
                 Array.isArray(value) ? (
                   <li key={key}>
-                    <span className="font-semibold">{key}:</span> {value.length} פריטים
+                    <span className="font-semibold">{key}:</span> {value.length} Items
                     <ul className="list-decimal pl-5 text-xs">
                       {value.map((item, idx) => (
                         <li key={idx}>{typeof item === "object" ? JSON.stringify(item) : item}</li>
@@ -79,8 +79,8 @@ const ScanDetailsModal: React.FC<ScanDetailsModalProps> = ({
           className="bg-app-accent text-black px-4 py-2 rounded hover:bg-app-primary transition"
           onClick={handleExport}
         >
-          ייצוא לאקסל
-        </button>
+          Export to Excel
+         </button>
       </div>
     </div>
   );

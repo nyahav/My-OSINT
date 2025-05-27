@@ -22,9 +22,9 @@ const ScanResults: React.FC = () => {
     progressInterval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 95) return prev; 
-        return Math.min(prev + 0.32, 95); 
+        return Math.min(prev + 0.316, 95); 
       });
-    }, 400);
+    }, 600);
 
     interval = setInterval(async () => {
       const token = localStorage.getItem("token");
@@ -52,14 +52,14 @@ const ScanResults: React.FC = () => {
         clearInterval(progressInterval);
         navigate("/login");
       }
-    }, 2000);
+    }, 4000);
 
     return () => {
       clearInterval(interval);
       clearInterval(progressInterval);
     };
   }, [scan_id, API_BASE_URL, navigate]);
-  console.log("loading:", loading, "results:", results, "progress:", progress); ;
+  
 
 
 return (
@@ -100,9 +100,14 @@ return (
 
             <div>
               <h2 className="text-xl font-semibold text-app-accent mb-2">Amass</h2>
-              <pre className="bg-black/30 p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap">
-                {JSON.stringify(results.amass, null, 2)}
-              </pre>
+              <ScanSummaryCard
+                title="Amass"
+                domain={scannedDomain || results.domain}
+                startedAt={results.started_at}
+                finishedAt={results.finished_at}
+                results={results.amass}
+                onShowDetails={() => setShowDetails("amass")}
+              />
             </div>
           </div>
         ) : (
@@ -117,6 +122,15 @@ return (
         startedAt={results?.started_at}
         finishedAt={results?.finished_at}
         results={results?.theHarvester}
+      />
+       <ScanDetailsModal
+        open={showDetails === "amass"}
+        onClose={() => setShowDetails(null)}
+        title="amass"
+        domain={scannedDomain || results?.domain}
+        startedAt={results?.started_at}
+        finishedAt={results?.finished_at}
+        results={results?.amass}
       />
     </div>
   );

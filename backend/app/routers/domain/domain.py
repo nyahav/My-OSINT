@@ -103,7 +103,7 @@ async def run_scan_task(scan_id: str):
             return
 
         domain = scan.domain
-        tools_enabled = scan.tools_enabled or {"theharvester": True, "amass": False}  # Default to both tools if not specified
+        tools_enabled = scan.tools_enabled or {"theharvester": True, "amass": True}  # Default to both tools if not specified
         overall_error_message = None
 
         # Update scan status to RUNNING
@@ -113,8 +113,8 @@ async def run_scan_task(scan_id: str):
         tool_tasks = []
         if tools_enabled.get("theharvester"):
             tool_tasks.append(_run_theharvester_and_update_db(db, scan_id, domain))
-        #if tools_enabled.get("amass"):
-        #    tool_tasks.append(_run_amass_and_update_db(db, scan_id, domain))
+        if tools_enabled.get("amass"):
+            tool_tasks.append(_run_amass_and_update_db(db, scan_id, domain))
 
         if not tool_tasks:
             overall_error_message = "No tools enabled for this scan."
