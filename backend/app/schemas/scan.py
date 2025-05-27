@@ -14,7 +14,7 @@ class ScanStatus(str, Enum):
 class ScanBase(BaseModel):
     domain: str = Field(..., description="The domain being scanned.")
     tools_enabled: Optional[Dict[str, bool]] = Field(
-        default_factory=lambda: {"theharvester": True, "amass": True},
+        default_factory=lambda: {"theharvester": True, "amass": True, "subfinder": True},
         description="Dictionary indicating which tools are enabled for the scan."
     )
     scan_options: Optional[Dict[str, Any]] = Field(None, description="Additional scan options or parameters.")
@@ -28,13 +28,15 @@ class ScanCreate(ScanBase):
 class ScanUpdate(BaseModel):
     """Schema for updating an existing scan."""
     status: Optional[ScanStatus] = Field(None, description="Current status of the scan.")
-    theharvester_results: Optional[Dict[str, Any]] = Field(None, description="Results from TheHarvester tool.")
-    amass_results: Optional[Dict[str, Any]] = Field(None, description="Results from Amass tool.")
+    theharvester: Optional[Dict[str, Any]] = Field(None, description="Results from TheHarvester tool.")
+    amass: Optional[Dict[str, Any]] = Field(None, description="Results from Amass tool.")
+    subfinder: Optional[Dict[str, Any]] = Field(None, description="Results from subfinder tool.")
     summary: Optional[Dict[str, Any]] = Field(None, description="Summary of the scan results.")
     error_message: Optional[str] = Field(None, description="Error message if the scan failed.")
-    total_subdomains: Optional[int] = Field(None, description="Total number of subdomains found.")
-    total_emails: Optional[int] = Field(None, description="Total number of emails found.")
-    total_ips: Optional[int] = Field(None, description="Total number of IPs found.")
+    total_subdomains: Optional[int] = Field(0, description="Total number of subdomains found.")
+    total_emails: Optional[int] = Field(0, description="Total number of emails found.")
+    total_ips: Optional[int] = Field(0, description="Total number of IPs found.")
+    total_hosts: Optional[int] = Field(0, description="Total number of hosts found.")
     started_at: Optional[datetime] = Field(None, description="Timestamp when the scan started.")
     finished_at: Optional[datetime] = Field(None, description="Timestamp when the scan finished.")
     is_public: Optional[bool] = Field(None, description="Whether the scan results can be publicly shared.")
@@ -50,13 +52,17 @@ class ScanOut(ScanBase):
     started_at: Optional[datetime] = Field(None, description="Timestamp when the scan started.")
     finished_at: Optional[datetime] = Field(None, description="Timestamp when the scan finished.")
     duration_seconds: Optional[int] = Field(None, description="Duration of the scan in seconds.")
-    theHarvester: Optional[Dict[str, Any]] = Field(None, alias="theharvester_results", description="Results from TheHarvester tool.")
+    theharvester: Optional[Dict[str, Any]] = Field(None, alias="theharvester_results", description="Results from TheHarvester tool.")
     amass: Optional[Dict[str, Any]] = Field(None, alias="amass_results", description="Results from Amass tool.")
+    subfinder: Optional[Dict[str, Any]] = Field(None, alias="subfinder_results", description="Results from subfinder tool.")
+    
+    
     summary: Optional[Dict[str, Any]] = Field(None, description="Summary of the scan results.")
     error: Optional[str] = Field(None, alias="error_message", description="Error message if the scan failed.")
     total_subdomains: int = Field(..., description="Total number of subdomains found.")
     total_emails: int = Field(..., description="Total number of emails found.")
     total_ips: int = Field(..., description="Total number of IPs found.")
+    total_hosts: int = Field(..., description="Total number of hosts found.")
     is_active: bool = Field(..., description="Indicates if the scan record is active (not soft-deleted).")
     created_by: Optional[str] = Field(None, description="User who created the scan record.")
     updated_by: Optional[str] = Field(None, description="Last user who updated the scan record.")

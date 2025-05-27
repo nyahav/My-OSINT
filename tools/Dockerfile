@@ -20,6 +20,12 @@ RUN wget https://github.com/owasp-amass/amass/releases/download/v4.2.0/amass_Lin
     && mv amass_Linux_amd64/amass /usr/local/bin/ \
     && rm -rf amass_Linux_amd64*
 
+# Install subfinder
+RUN wget https://github.com/projectdiscovery/subfinder/releases/download/v2.6.5/subfinder_2.6.5_linux_amd64.zip \
+    && unzip subfinder_2.6.5_linux_amd64.zip \
+    && mv subfinder /usr/local/bin/ \
+    && rm -rf subfinder_2.6.5_linux_amd64.zip LICENSE README.md
+
 # Install theHarvester
 RUN git clone https://github.com/laramies/theHarvester.git /opt/theHarvester \
     && cd /opt/theHarvester \

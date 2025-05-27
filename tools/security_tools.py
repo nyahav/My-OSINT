@@ -3,23 +3,51 @@ import json
 import os
 import asyncio
 from typing import List, Dict, Any
-from tools.logger import logger # Corrected import path for logger
+from tools.logger import logger
 
 class SecurityTools:
     def __init__(self):
         self.shared_dir = "/home/app/shared"
-        self.tools_container = "security-tools"  # Name of the tools container
+        self.tools_container = "security-tools"
+        # הוסף את הקו הזה שחסר
+        self.partial_results = {}
+    
+    async def get_partial_results(self, domain: str) -> Dict[str, Any]:
+        """
+        מתודה לשליפת תוצאות חלקיות לדומיין מסוים
+        """
+        return self.partial_results.get(domain, {
+            "subdomains": [],
+            "emails": [],
+            "hosts": [],
+            "ips": []
+        })
+    
+    def clear_partial_results(self, domain: str):
+        """
+        ניקוי תוצאות חלקיות לדומיין מסוים
+        """
+        if domain in self.partial_results:
+            del self.partial_results[domain]
     
     async def run_amass(self, domain: str, timeout: int = 300) -> Dict[str, Any]:
         """
-        Run Amass subdomain enumeration
+        Run Amass subdomain enumeration with partial results support
         """
         logger.info(f"Starting Amass scan for domain: {domain}")
+        
+        # אתחל תוצאות חלקיות
+        self.partial_results[domain] = {
+            "subdomains": [],
+            "emails": [],
+            "hosts": [],
+            "ips": []
+        }
         
         try:
             cmd = [
                 "docker", "exec", self.tools_container,
-                "amass", "enum",  "-passive" ,"-d", domain
+                "amass", "enum", "-passive", "-d", domain
             ]
             logger.debug(f"Executing Amass command: {' '.join(cmd)}")
 
@@ -28,67 +56,184 @@ class SecurityTools:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
+            
+            # קרא שורות תוך כדי ריצה ושמור תוצאות חלקיות
+            subdomains_found = []
+            
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), 
-                    timeout=timeout
-                )
-            except asyncio.TimeoutError:
-                logger.error(f"Amass scan for {domain} timed out after {timeout} seconds.")
-                # Try to get whatever output is available before killing
-                try:
-                    process.kill()
-                    stdout, stderr = await process.communicate()
-                    output = stdout.decode().splitlines()
-                    subdomains = [line.strip() for line in output if line.strip()]
-                    logger.warning(f"Partial Amass results for {domain} due to timeout. Found {len(subdomains)} subdomains.")
-                    return {
-                        "success": True,
-                        "tool": "amass",
-                        "domain": domain,
-                        "subdomains": subdomains,
-                        "count": len(subdomains),
-                        "partial": True,
-                        "error": f"Timeout after {timeout} seconds"
-                    }
-                except Exception as e:
-                    logger.error(f"Failed to retrieve partial Amass results after timeout: {e}")
-                    return {"error": f"Amass scan for {domain} timed out and no results could be retrieved", "success": False}
-
-            if process.returncode == 0:
-                output = stdout.decode().splitlines()
-                subdomains = [line.strip() for line in output if line.strip()]
-                logger.info(f"Successfully processed Amass results for {domain}. Found {len(subdomains)} subdomains.")
+                while True:
+                    try:
+                        # קרא שורה עם timeout קצר
+                        line = await asyncio.wait_for(
+                            process.stdout.readline(), 
+                            timeout=10
+                        )
+                        if not line:
+                            break
+                            
+                        decoded = line.decode().strip()
+                        if decoded and decoded not in subdomains_found:
+                            subdomains_found.append(decoded)
+                            # עדכן תוצאות חלקיות
+                            self.partial_results[domain]["subdomains"] = subdomains_found
+                            logger.debug(f"Found subdomain: {decoded} (total: {len(subdomains_found)})")
+                            
+                    except asyncio.TimeoutError:
+                        # אם לא קיבלנו שורה חדשה תוך 10 שניות, בדוק אם התהליך עדיין רץ
+                        if process.returncode is not None:
+                            break
+                        continue
+                        
+                # המתן לסיום התהליך
+                await asyncio.wait_for(process.wait(), timeout=timeout)
+                
+                logger.info(f"Amass completed successfully for {domain}. Found {len(subdomains_found)} subdomains.")
                 return {
                     "success": True,
                     "tool": "amass",
                     "domain": domain,
-                    "subdomains": subdomains,
-                    "count": len(subdomains)
+                    "subdomains": subdomains_found,
+                    "count": len(subdomains_found)
                 }
-            else:
-                error_message = stderr.decode().strip()
-                logger.error(f"Amass failed for domain {domain}. Error: {error_message}")
+                
+            except asyncio.TimeoutError:
+                # Timeout - אבל יש לנו תוצאות חלקיות
+                logger.warning(f"Amass timed out for {domain}, returning partial results: {len(subdomains_found)} subdomains")
+                try:
+                    process.kill()
+                    await process.wait()
+                except:
+                    pass
+                    
                 return {
-                    "error": f"Amass failed: {error_message}",
-                    "success": False
+                    "success": True,  # עדיין success כי יש תוצאות
+                    "partial": True,
+                    "timeout": True,
+                    "tool": "amass",
+                    "domain": domain,
+                    "subdomains": subdomains_found,
+                    "count": len(subdomains_found),
+                    "error": f"Timeout after {timeout} seconds"
                 }
                 
         except Exception as e:
-            logger.exception(f"Unhandled exception while trying to run Amass for {domain}") # Use exception for full traceback
+            logger.exception(f"Exception in Amass for {domain}")
+            # גם במקרה של שגיאה, נחזיר מה שנאסף עד כה
+            partial = self.partial_results.get(domain, {})
             return {
-                "error": f"Failed to run Amass: {str(e)}",
-                "success": False
+                "success": False,
+                "error": str(e),
+                "subdomains": partial.get("subdomains", []),
+                "count": len(partial.get("subdomains", []))
             }
     
+    async def run_subfinder(self, domain: str, timeout: int = 120) -> Dict[str, Any]:
+        """
+        Run subfinder with partial results support
+        """
+        logger.info(f"Starting subfinder scan for domain: {domain}")
+        
+        # אתחל תוצאות חלקיות
+        self.partial_results[domain] = {
+            "subdomains": [],
+            "emails": [],
+            "hosts": [],
+            "ips": []
+        }
+        
+        try:
+            cmd = [
+                "docker", "exec", self.tools_container,
+                "subfinder", "-d", domain, "-silent"
+            ]
+            logger.debug(f"Executing subfinder command: {' '.join(cmd)}")
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            subdomains_found = []
+            
+            try:
+                while True:
+                    try:
+                        line = await asyncio.wait_for(
+                            process.stdout.readline(), 
+                            timeout=10
+                        )
+                        if not line:
+                            break
+                            
+                        decoded = line.decode().strip()
+                        if decoded and decoded not in subdomains_found:
+                            subdomains_found.append(decoded)
+                            self.partial_results[domain]["subdomains"] = subdomains_found
+                            logger.debug(f"Subfinder found: {decoded} (total: {len(subdomains_found)})")
+                            
+                    except asyncio.TimeoutError:
+                        if process.returncode is not None:
+                            break
+                        continue
+                        
+                await asyncio.wait_for(process.wait(), timeout=timeout)
+                
+                logger.info(f"Subfinder completed for {domain}. Found {len(subdomains_found)} subdomains.")
+                return {
+                    "success": True,
+                    "tool": "subfinder",
+                    "domain": domain,
+                    "subdomains": subdomains_found,
+                    "count": len(subdomains_found)
+                }
+                
+            except asyncio.TimeoutError:
+                logger.warning(f"Subfinder timed out for {domain}, returning partial results: {len(subdomains_found)} subdomains")
+                try:
+                    process.kill()
+                    await process.wait()
+                except:
+                    pass
+                    
+                return {
+                    "success": True,
+                    "partial": True,
+                    "timeout": True,
+                    "tool": "subfinder", 
+                    "domain": domain,
+                    "subdomains": subdomains_found,
+                    "count": len(subdomains_found),
+                    "error": f"Timeout after {timeout} seconds"
+                }
+                
+        except Exception as e:
+            logger.exception(f"Exception in subfinder for {domain}")
+            partial = self.partial_results.get(domain, {})
+            return {
+                "success": False,
+                "error": str(e),
+                "subdomains": partial.get("subdomains", []),
+                "count": len(partial.get("subdomains", []))
+            }
+
     async def run_theharvester(self, domain: str, sources: str = "google,bing", timeout: int = 300) -> Dict[str, Any]:
         """
-        Run theHarvester for information gathering
+        Run theHarvester with partial results support
         """
-        logger.info(f"Starting theHarvester scan for domain: {domain} with sources: {sources}")
-        output_file_name = f"harvester_output_{domain.replace('.', '_')}.json" # Use _output_ for consistency
-        tools_output_path = f"/home/tools/shared/{output_file_name}" 
-        api_output_path = f"{self.shared_dir}/{output_file_name}" # Use self.shared_dir
+        logger.info(f"Starting theHarvester scan for domain: {domain}")
+        
+        # אתחל תוצאות חלקיות
+        self.partial_results[domain] = {
+            "subdomains": [],
+            "emails": [],
+            "hosts": [],
+            "ips": []
+        }
+        
+        output_file_name = f"harvester_output_{domain.replace('.', '_')}.json"
+        tools_output_path = f"/home/tools/shared/{output_file_name}"
+        api_output_path = f"{self.shared_dir}/{output_file_name}"
 
         try:
             cmd = [
@@ -96,7 +241,7 @@ class SecurityTools:
                 "python3", "/opt/theHarvester/theHarvester.py",
                 "-d", domain,
                 "-b", sources,
-                "-f", tools_output_path # Specify the JSON output file directly
+                "-f", tools_output_path
             ]
             logger.debug(f"Executing theHarvester command: {' '.join(cmd)}")
             
@@ -108,74 +253,86 @@ class SecurityTools:
             
             try:
                 stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), 
+                    process.communicate(),
                     timeout=timeout
                 )
-            except asyncio.TimeoutError:
-                process.kill()
-                logger.error(f"theHarvester scan for {domain} timed out after {timeout} seconds.")
-                return {"error": "theHarvester scan timed out", "success": False} # Added success: False for consistency
-            
-            if process.returncode == 0:
-                logger.info(f"theHarvester scan for {domain} completed successfully. Reading results from {api_output_path}")
-                results = {"emails": [], "hosts": [], "ips": []}
                 
+                # קרא תוצאות מהקובץ
+                results = {"emails": [], "hosts": [], "ips": []}
                 if os.path.exists(api_output_path):
                     try:
                         with open(api_output_path, 'r') as f:
                             file_results = json.load(f)
-                            # theHarvester's JSON output structure might vary.
-                            # Ensure you merge relevant fields, e.g., 'hosts', 'emails', 'ips'
                             if 'hosts' in file_results:
                                 results['hosts'].extend(file_results['hosts'])
                             if 'emails' in file_results:
                                 results['emails'].extend(file_results['emails'])
-                            if 'ips' in file_results: # Assuming it might output IPs
+                            if 'ips' in file_results:
                                 results['ips'].extend(file_results['ips'])
-                            # Add other relevant keys if theHarvester outputs them
-                            
-                        logger.debug(f"Successfully loaded JSON output from {api_output_path}")
-                    except json.JSONDecodeError as jde:
-                        logger.error(f"Error decoding JSON from theHarvester output {api_output_path}: {jde}")
-                    except Exception as e: # Catch other file errors
-                        logger.error(f"Error reading theHarvester output file {api_output_path}: {e}")
+                        
+                        # עדכן תוצאות חלקיות
+                        self.partial_results[domain].update(results)
+                        
+                    except Exception as e:
+                        logger.error(f"Error reading theHarvester output: {e}")
                     finally:
-                        # Clean up the output file after reading
                         if os.path.exists(api_output_path):
                             os.remove(api_output_path)
-                            logger.debug(f"Removed theHarvester output file: {api_output_path}")
-                else:
-                    logger.warning(f"theHarvester JSON output file not found at {api_output_path}. Relying on stdout.")
-
-                output_text = stdout.decode().strip() # Capture stdout even on success
-                if output_text:
-                    logger.debug(f"theHarvester stdout for {domain}: {output_text}")
-
-                logger.info(f"Successfully processed theHarvester results for {domain}.")
+                
                 return {
                     "success": True,
                     "tool": "theHarvester",
                     "domain": domain,
                     "sources": sources,
-                    "results": results,
-                    "raw_output": output_text
+                    "results": results
                 }
-            else:
-                error_message = stderr.decode().strip()
-                logger.error(f"theHarvester failed for domain {domain}. Error: {error_message}")
-                # Also log stdout if available, as theHarvester can print errors there too
-                if stdout.strip():
-                    logger.error(f"theHarvester stdout during failure for {domain}: {stdout.decode().strip()}")
+                
+            except asyncio.TimeoutError:
+                logger.warning(f"theHarvester timed out for {domain}")
+                try:
+                    process.kill()
+                    await process.wait()
+                except:
+                    pass
+                
+                # נסה לקרוא תוצאות חלקיות מהקובץ
+                partial_results = {"emails": [], "hosts": [], "ips": []}
+                if os.path.exists(api_output_path):
+                    try:
+                        with open(api_output_path, 'r') as f:
+                            file_results = json.load(f)
+                            if 'hosts' in file_results:
+                                partial_results['hosts'].extend(file_results['hosts'])
+                            if 'emails' in file_results:
+                                partial_results['emails'].extend(file_results['emails'])
+                            if 'ips' in file_results:
+                                partial_results['ips'].extend(file_results['ips'])
+                        os.remove(api_output_path)
+                    except:
+                        pass
+                
                 return {
-                    "error": f"theHarvester failed: {error_message}",
-                    "success": False
+                    "success": True,
+                    "partial": True,
+                    "timeout": True,
+                    "tool": "theHarvester",
+                    "domain": domain,
+                    "sources": sources,
+                    "results": partial_results,
+                    "error": f"Timeout after {timeout} seconds"
                 }
                 
         except Exception as e:
-            logger.exception(f"Unhandled exception while trying to run theHarvester for {domain}") # Use exception for full traceback
+            logger.exception(f"Exception in theHarvester for {domain}")
+            partial = self.partial_results.get(domain, {})
             return {
-                "error": f"Failed to run theHarvester: {str(e)}",
-                "success": False
+                "success": False,
+                "error": str(e),
+                "results": {
+                    "emails": partial.get("emails", []),
+                    "hosts": partial.get("hosts", []),
+                    "ips": partial.get("ips", [])
+                }
             }
     
     async def run_combined_scan(self, domain: str) -> Dict[str, Any]:
@@ -186,13 +343,16 @@ class SecurityTools:
         # Run tasks concurrently
         amass_task = self.run_amass(domain)
         theharvester_task = self.run_theharvester(domain)
-
-        amass_results, harvester_results = await asyncio.gather(amass_task, theharvester_task)
+        subfinder_task = self.run_subfinder(domain) 
+        
+        amass, harvester , subfinder = await asyncio.gather(amass_task, theharvester_task, subfinder_task)
 
         results = {
             "domain": domain,
-            "amass": amass_results,
-            "theharvester": harvester_results
+            "amass": amass,
+            "theharvester": harvester,
+            "subfinder": subfinder
+            
         }
         
         logger.info(f"Combined scan for domain: {domain} completed.")

@@ -5,12 +5,16 @@ from app.db.models.scan import Scan
 from app.schemas.scan import ScanCreate, ScanUpdate, ScanOut
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Function to get a scan by ID
 async def get_scan_by_id(db: AsyncSession, scan_id: str) -> Optional[Scan]:
     """
     Retrieves a single scan from the database by its ID.
     """
+    
     result = await db.execute(select(Scan).filter(Scan.id == scan_id))
     return result.scalars().first()
 
@@ -90,7 +94,7 @@ async def create_scan(db: AsyncSession, scan: ScanCreate, created_by: Optional[s
     db_scan = Scan(
         domain=scan.domain,
         status="pending",
-        tools_enabled=scan.tools_enabled or {"theharvester": True, "amass": True},
+        tools_enabled=scan.tools_enabled or {"theharvester": True, "amass": True, "subfinder": True},
         scan_options=scan.scan_options,
         user_id=scan.user_id,
         is_public=scan.is_public or False,
@@ -124,6 +128,7 @@ async def update_scan(db: AsyncSession, scan_id: str, scan_update: ScanUpdate, u
             updated_date=datetime.now()
         )
     )
+    logger.debug(f"update_data: {update_data}")
     await db.execute(stmt)
     await db.commit()
     return await get_scan_by_id(db, scan_id)
@@ -163,8 +168,9 @@ async def update_scan_status(
 async def update_scan_results(
     db: AsyncSession,
     scan_id: str,
-    theharvester_results: Optional[Dict[str, Any]] = None,
-    amass_results: Optional[Dict[str, Any]] = None,
+    theharvester: Optional[Dict[str, Any]] = None,
+    amass: Optional[Dict[str, Any]] = None,
+    subfinder: Optional[Dict[str, Any]] = None,
     summary: Optional[Dict[str, Any]] = None,
     updated_by: Optional[str] = None
 ) -> Optional[Scan]:
@@ -173,22 +179,19 @@ async def update_scan_results(
     """
     update_data = {"updated_by": updated_by, "updated_date": datetime.now()}
     
-    if theharvester_results is not None:
-        update_data["theharvester_results"] = theharvester_results
-        # Extract email count for quick access
-        if isinstance(theharvester_results, dict) and "emails" in theharvester_results:
-            emails = theharvester_results["emails"]
-            update_data["total_emails"] = len(emails) if isinstance(emails, list) else 0
-    
-    if amass_results is not None:
-        update_data["amass_results"] = amass_results
-        # Extract subdomain count for quick access
-        if isinstance(amass_results, dict) and "count" in amass_results:
-            update_data["total_subdomains"] = amass_results["count"]
-    
+    if theharvester is not None:
+        update_data["theharvester"] = theharvester
+
+    if amass is not None:
+        update_data["amass"] = amass
+
+    if subfinder is not None:
+        update_data["subfinder"] = subfinder
+
     if summary is not None:
         update_data["summary"] = summary
     
+    # תיקון הזחה וחזרה של הפונקציה
     stmt = update(Scan).where(Scan.id == scan_id).values(**update_data)
     await db.execute(stmt)
     await db.commit()

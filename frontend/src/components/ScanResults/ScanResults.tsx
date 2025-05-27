@@ -9,7 +9,7 @@ const ScanResults: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [scannedDomain, setScannedDomain] = useState<string | null>(null);
-  const [showDetails, setShowDetails] = useState<"theHarvester" | "amass" | null>(null);
+  const [showDetails, setShowDetails] = useState<"theHarvester" | "amass" | "subfinder" | null>(null);
   const navigate = useNavigate();
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -85,28 +85,47 @@ return (
         ) : results ? (
           <div className="space-y-6">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-app-primary to-app-accent bg-clip-text text-transparent hover:scale-105 hover:drop-shadow-glow transition duration-300 text-center">Scan Results</h1>
+             <div>
+              <h2 className="text-2xl font-semibold text-app-accent mb-2">Total</h2>
+                <ScanSummaryCard
+                  title="Summary"
+                  summary={results.summary}
+                  isSummary={true}
+                />
+            </div>
 
             <div>
               <h2 className="text-2xl font-semibold text-app-accent mb-2">theHarvester</h2>
                 <ScanSummaryCard
                 title="theHarvester"
                 domain={scannedDomain || results.domain}
-                startedAt={results.started_at}
-                finishedAt={results.finished_at}
+                startedAt={results.theHarvester?.start_time}
+                finishedAt={results.theHarvester?.end_time}
                 results={results.theHarvester}
                 onShowDetails={() => setShowDetails("theHarvester")}
               />
             </div>
 
             <div>
-              <h2 className="text-xl font-semibold text-app-accent mb-2">Amass</h2>
+              <h2 className="text-2xl font-semibold text-app-accent mb-2">Amass</h2>
               <ScanSummaryCard
                 title="Amass"
                 domain={scannedDomain || results.domain}
-                startedAt={results.started_at}
-                finishedAt={results.finished_at}
+                startedAt={results.amass?.start_time}
+                finishedAt={results.amass?.end_time}
                 results={results.amass}
                 onShowDetails={() => setShowDetails("amass")}
+              />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-app-accent mb-2">subfinder</h2>
+              <ScanSummaryCard
+                title="subfinder"
+                domain={scannedDomain || results.domain}
+                startedAt={results.subfinder?.start_time}
+                finishedAt={results.subfinder?.end_time}
+                results={results.subfinder}
+                onShowDetails={() => setShowDetails("subfinder")}
               />
             </div>
           </div>
@@ -131,6 +150,15 @@ return (
         startedAt={results?.started_at}
         finishedAt={results?.finished_at}
         results={results?.amass}
+      />
+      <ScanDetailsModal
+        open={showDetails === "subfinder"}
+        onClose={() => setShowDetails(null)}
+        title="subfinder"
+        domain={scannedDomain || results?.domain}
+        startedAt={results?.started_at}
+        finishedAt={results?.finished_at}
+        results={results?.subfinder}
       />
     </div>
   );

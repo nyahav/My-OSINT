@@ -21,9 +21,12 @@ class Scan(Base):
     status = Column(String(50), nullable=False, default="pending", index=True)  # pending, running, finished, error, cancelled
     
     # Tool results stored as JSON
-    theharvester_results = Column(JSON, nullable=True)
-    amass_results = Column(JSON, nullable=True)
+    theharvester = Column(JSON, nullable=True)
+    amass = Column(JSON, nullable=True)
+    subfinder = Column(JSON, nullable=True)
     summary = Column(JSON, nullable=True)
+    
+    
     
     # Error handling
     error_message = Column(Text, nullable=True)
@@ -32,7 +35,7 @@ class Scan(Base):
     total_subdomains = Column(Integer, default=0)
     total_emails = Column(Integer, default=0)
     total_ips = Column(Integer, default=0)
-    
+    total_hosts = Column(Integer, default=0)  
     # Scan timing
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
@@ -43,7 +46,7 @@ class Scan(Base):
     user = relationship("User", back_populates="scans")
     
     # Scan configuration
-    tools_enabled = Column(JSON, default=lambda: {"theharvester": True, "amass": True})  # Which tools to run
+    tools_enabled = Column(JSON, default=lambda: {"theharvester": True, "amass": True, "subfinder": True})  # Which tools to run
     scan_options = Column(JSON, nullable=True)  # Additional scan options/parameters
     
     # Status flags
@@ -69,13 +72,15 @@ class Scan(Base):
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "finished_at": self.finished_at.isoformat() if self.finished_at else None,
             "duration_seconds": self.duration_seconds,
-            "theHarvester": self.theharvester_results,
-            "amass": self.amass_results,
+            "theHarvester": self.theharvester,
+            "amass": self.amass,
+            "subfinder": self.subfinder,
             "summary": self.summary,
             "error": self.error_message,
             "total_subdomains": self.total_subdomains,
             "total_emails": self.total_emails,
             "total_ips": self.total_ips,
+            "total_hosts": self.total_hosts,
             "tools_enabled": self.tools_enabled,
             "scan_options": self.scan_options,
             "is_public": self.is_public,
@@ -106,8 +111,9 @@ class Scan(Base):
     @property 
     def has_results(self):
         """Check if scan has any results"""
-        return (self.theharvester_results is not None or 
-                self.amass_results is not None)
+        return (self.theharvester is not None or 
+                self.amass is not None
+                or self.subfinder is not None)
     
     def get_success_rate(self):
         """Calculate success rate of enabled tools"""
@@ -120,12 +126,16 @@ class Scan(Base):
             
         successful_tools = 0
         
-        if self.tools_enabled.get("theharvester") and self.theharvester_results:
-            if not self.theharvester_results.get("error"):
+        if self.tools_enabled.get("theharvester") and self.theharvester:
+            if not self.theharvester.get("error"):
                 successful_tools += 1
                 
-        if self.tools_enabled.get("amass") and self.amass_results:
-            if not self.amass_results.get("error"):
+        if self.tools_enabled.get("amass") and self.amass:
+            if not self.amass.get("error"):
+                successful_tools += 1
+                
+        if self.tools_enabled.get("subfinder") and self.subfinder:
+            if not self.subfinder.get("error"):
                 successful_tools += 1
                 
         return (successful_tools / total_tools) * 100

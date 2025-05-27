@@ -173,6 +173,12 @@ async def _run_subfinder_and_update_db(db: AsyncSession, scan_id: str, domain: s
         updated_by="system_subfinder_runner"
     )
 
+async def run_tool_with_timeout(tool_coro, timeout):
+    try:
+        return await asyncio.wait_for(tool_coro, timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.warning("Tool timed out, saving partial results if any.")
+        return {"error": "timeout", "partial": True}
 
 async def run_tool_and_update_db(
     db: AsyncSession,
@@ -224,46 +230,20 @@ async def run_tool_and_update_db(
             results = {"error": error_details, "start_time": start_time.isoformat(), "end_time": end_time.isoformat()}
             
     except asyncio.TimeoutError:
-        logger.warning(f"{tool_name} timed out for scan_id={scan_id}, saving partial results if available.")
-        end_time = datetime.utcnow()
-        partial_data = {}
-
-        # ננסה לקרוא תוצאות חלקיות מהכלי
-        try:
-            partial_data = await security_tools.get_partial_results(domain)
-            logger.info(f"Retrieved partial results for {tool_name}: {len(partial_data.get('subdomains', []))} subdomains, {len(partial_data.get('emails', []))} emails")
-        except Exception as e:
-            logger.error(f"Failed to get partial results from {tool_name}: {e}")
-            partial_data = {}
-
-        # בנה תוצאה חלקית
+        # טיפול ב-timeout - שמור מה שיש עד כה
+        error_details = f"{tool_name} timed out after {timeout} seconds"
+        logger.warning(f"{tool_name} timed out for scan_id={scan_id}")
         results = {
-            "subdomains": partial_data.get("subdomains", []),
-            "emails": partial_data.get("emails", []),
-            "hosts": partial_data.get("hosts", []),
-            "ips": partial_data.get("ips", []),
-            "count": len(partial_data.get("subdomains", [])),
-            "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat(),
+            "error": error_details, 
             "timeout": True,
-            "partial": True,
-            "error": f"{tool_name} timed out after {timeout} seconds"
+            "start_time": start_time.isoformat(), 
+            "end_time": datetime.utcnow().isoformat()
         }
-        results = deduplicate_results(results)
         
-        # נקה תוצאות חלקיות אחרי השימוש
-        security_tools.clear_partial_results(domain)
-
     except Exception as e:
         error_details = f"Exception during {tool_name} run: {str(e)}"
         logger.exception(f"Exception while running {tool_name} for scan_id={scan_id}")
-        results = {
-            "error": error_details,
-            "start_time": start_time.isoformat(),
-            "end_time": datetime.utcnow().isoformat(),
-            "timeout": False,
-            "partial": False,
-        }
+        results = {"error": error_details, "start_time": start_time.isoformat(), "end_time": datetime.utcnow().isoformat()}
 
     # שמירה ל-DB (גם במקרה של timeout)
     await crud_scan.update_scan_results(
@@ -272,8 +252,8 @@ async def run_tool_and_update_db(
         **{db_field: results if results else {"error": error_details}},
         updated_by=f"system_{tool_name.lower()}_runner"
     )
-    logger.info(f"Updated scan {scan_id} with {tool_name} results in DB (timeout={results.get('timeout', False)})")
-    return results
+    logger.info(f"Updated scan {scan_id} with {tool_name} results in DB.")
+    return results  # Return the unified result object
 
 
 
@@ -313,38 +293,36 @@ async def run_scan_task(scan_id: str):
         if tools_enabled.get("theharvester"):
             logger.info("Adding theHarvester to tool_tasks")
             tool_tasks.append(
-                
+                run_tool_with_timeout(
                 run_tool_and_update_db(
                 db, scan_id, domain,
                 security_tools.run_theharvester,
                 "theharvester",
                 "theHarvester",
-                tool_kwargs={"sources": "all"},
-                timeout=120
-                
-        ))
+                tool_kwargs={"sources": "all"}
+        ),120))
         if tools_enabled.get("amass"):
             logger.info("Adding amass to tool_tasks")
             tool_tasks.append(
+                 run_tool_with_timeout(
                 run_tool_and_update_db(
                 db, scan_id, domain,
                 security_tools.run_amass,
                 "amass",
                 "amass",
-                tool_kwargs={},
-                timeout=120
-            ))
+                tool_kwargs={}
+            ),120))
         if tools_enabled.get("subfinder"):
             logger.info("Adding subfinder to tool_tasks")
             tool_tasks.append(
+                 run_tool_with_timeout(
                 run_tool_and_update_db(
                 db, scan_id, domain,
                 security_tools.run_subfinder,
                 "subfinder",
                 "subfinder",
                 tool_kwargs={},
-                timeout=120
-            ) )  
+            ),120)  )  
             
         if not tool_tasks:
             overall_error_message = "No tools enabled for this scan."
