@@ -18,8 +18,3 @@ const colors: Readonly<ColorSchema> = {
 
 export default colors;
 
-// Use animated glows, neon borders, and subtle hover transitions.
-
-// Pair fonts like Orbitron, Share Tech Mono, or Fira Code with your UI.
-
-// Add terminal-style cards for scan results/logs.

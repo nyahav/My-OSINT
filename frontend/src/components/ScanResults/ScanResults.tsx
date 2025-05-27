@@ -18,7 +18,7 @@ const ScanResults: React.FC = () => {
     let interval: NodeJS.Timeout;
     let progressInterval: NodeJS.Timeout;
 
-    // Simulate loading bar progress
+    
     progressInterval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 95) return prev; 

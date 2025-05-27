@@ -35,7 +35,7 @@ services:
     networks:
       - app-network
     restart: always
-    command: tail -f /dev/null  # Keep container running
+    command: tail -f /dev/null 
     healthcheck:
       test: ["CMD", "which", "amass"]
       interval: 30s

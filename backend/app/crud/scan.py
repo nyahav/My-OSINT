@@ -1,4 +1,4 @@
-# app/crud/scan.py
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func, and_, or_, desc, asc
 from app.db.models.scan import Scan
@@ -9,7 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Function to get a scan by ID
+
 async def get_scan_by_id(db: AsyncSession, scan_id: str) -> Optional[Scan]:
     """
     Retrieves a single scan from the database by its ID.
@@ -18,7 +18,7 @@ async def get_scan_by_id(db: AsyncSession, scan_id: str) -> Optional[Scan]:
     result = await db.execute(select(Scan).filter(Scan.id == scan_id))
     return result.scalars().first()
 
-# Function to get scans by domain
+
 async def get_scans_by_domain(db: AsyncSession, domain: str, skip: int = 0, limit: int = 100) -> List[Scan]:
     """
     Retrieves scans for a specific domain with pagination.
@@ -32,7 +32,7 @@ async def get_scans_by_domain(db: AsyncSession, domain: str, skip: int = 0, limi
     )
     return list(result.scalars().all())
 
-# Function to get scans by user ID
+
 async def get_scans_by_user(db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100) -> List[Scan]:
     """
     Retrieves scans created by a specific user with pagination.
@@ -46,7 +46,7 @@ async def get_scans_by_user(db: AsyncSession, user_id: int, skip: int = 0, limit
     )
     return list(result.scalars().all())
 
-# Function to get multiple scans with filtering
+
 async def get_scans(
     db: AsyncSession, 
     skip: int = 0, 
@@ -63,7 +63,7 @@ async def get_scans(
     """
     query = select(Scan).filter(Scan.is_active == True)
     
-    # Apply filters
+    
     if status:
         query = query.filter(Scan.status == status)
     if domain:
@@ -73,20 +73,20 @@ async def get_scans(
     if is_public is not None:
         query = query.filter(Scan.is_public == is_public)
     
-    # Apply ordering
+    
     order_column = getattr(Scan, order_by, Scan.created_date)
     if order_direction.lower() == "desc":
         query = query.order_by(desc(order_column))
     else:
         query = query.order_by(asc(order_column))
     
-    # Apply pagination
+    
     query = query.offset(skip).limit(limit)
     
     result = await db.execute(query)
     return list(result.scalars().all())
 
-# Function to create a new scan
+
 async def create_scan(db: AsyncSession, scan: ScanCreate, created_by: Optional[str] = None) -> Scan:
     """
     Creates a new scan record in the database.
@@ -106,12 +106,12 @@ async def create_scan(db: AsyncSession, scan: ScanCreate, created_by: Optional[s
     await db.refresh(db_scan)
     return db_scan
 
-# Function to update an existing scan
+
 async def update_scan(db: AsyncSession, scan_id: str, scan_update: ScanUpdate, updated_by: Optional[str] = None) -> Optional[Scan]:
     """
     Updates an existing scan's details in the database.
     """
-    # Calculate duration if both started_at and finished_at are provided
+    
     update_data = scan_update.model_dump(exclude_unset=True)
     
     if "started_at" in update_data and "finished_at" in update_data:
@@ -133,7 +133,7 @@ async def update_scan(db: AsyncSession, scan_id: str, scan_update: ScanUpdate, u
     await db.commit()
     return await get_scan_by_id(db, scan_id)
 
-# Function to update scan status
+
 async def update_scan_status(
     db: AsyncSession, 
     scan_id: str, 
@@ -150,7 +150,7 @@ async def update_scan_status(
         update_data["started_at"] = datetime.now()
     elif status in ["finished", "error", "cancelled"]:
         update_data["finished_at"] = datetime.now()
-        # Calculate duration if we have started_at
+        
         scan = await get_scan_by_id(db, scan_id)
         if scan and scan.started_at:
             duration = (datetime.now() - scan.started_at).total_seconds()
@@ -164,7 +164,7 @@ async def update_scan_status(
     await db.commit()
     return await get_scan_by_id(db, scan_id)
 
-# Function to update scan results
+
 async def update_scan_results(
     db: AsyncSession,
     scan_id: str,
@@ -191,13 +191,13 @@ async def update_scan_results(
     if summary is not None:
         update_data["summary"] = summary
     
-    # תיקון הזחה וחזרה של הפונקציה
+    
     stmt = update(Scan).where(Scan.id == scan_id).values(**update_data)
     await db.execute(stmt)
     await db.commit()
     return await get_scan_by_id(db, scan_id)
 
-# Function to soft delete a scan
+
 async def delete_scan(db: AsyncSession, scan_id: str, deleted_by: Optional[str] = None) -> bool:
     """
     Soft deletes a scan by setting is_active to False.
@@ -215,7 +215,7 @@ async def delete_scan(db: AsyncSession, scan_id: str, deleted_by: Optional[str] 
     await db.commit()
     return result.rowcount > 0
 
-# Function to hard delete a scan (use with caution)
+
 async def hard_delete_scan(db: AsyncSession, scan_id: str) -> bool:
     """
     Permanently deletes a scan from the database.
@@ -225,7 +225,7 @@ async def hard_delete_scan(db: AsyncSession, scan_id: str) -> bool:
     await db.commit()
     return result.rowcount > 0
 
-# Function to get scan statistics
+
 async def get_scan_stats(db: AsyncSession, user_id: Optional[int] = None) -> Dict[str, Any]:
     """
     Retrieves scanning statistics.
@@ -234,11 +234,11 @@ async def get_scan_stats(db: AsyncSession, user_id: Optional[int] = None) -> Dic
     if user_id:
         base_query = base_query.filter(Scan.user_id == user_id)
     
-    # Total scans
+    
     total_result = await db.execute(select(func.count(Scan.id)).select_from(base_query.subquery()))
     total_scans = total_result.scalar()
     
-    # Status counts
+ 
     status_query = (
         select(Scan.status, func.count(Scan.id))
         .select_from(base_query.subquery())
@@ -247,13 +247,13 @@ async def get_scan_stats(db: AsyncSession, user_id: Optional[int] = None) -> Dic
     status_result = await db.execute(status_query)
     status_counts = dict(status_result.fetchall())
     
-    # Recent scans (last 24 hours)
+   
     yesterday = datetime.now() - timedelta(days=1)
     recent_query = base_query.filter(Scan.created_date >= yesterday)
     recent_result = await db.execute(select(func.count(Scan.id)).select_from(recent_query.subquery()))
     recent_scans = recent_result.scalar()
     
-    # Top domains
+    
     domain_query = (
         select(Scan.domain, func.count(Scan.id))
         .select_from(base_query.subquery())
@@ -264,7 +264,7 @@ async def get_scan_stats(db: AsyncSession, user_id: Optional[int] = None) -> Dic
     domain_result = await db.execute(domain_query)
     top_domains = dict(domain_result.fetchall())
     
-    # Average duration for completed scans
+    
     duration_query = (
         select(func.avg(Scan.duration_seconds))
         .select_from(base_query.subquery())
@@ -281,7 +281,7 @@ async def get_scan_stats(db: AsyncSession, user_id: Optional[int] = None) -> Dic
         "average_duration_seconds": avg_duration
     }
 
-# Function to get running scans
+
 async def get_running_scans(db: AsyncSession) -> List[Scan]:
     """
     Retrieves all currently running scans.
@@ -294,7 +294,7 @@ async def get_running_scans(db: AsyncSession) -> List[Scan]:
     )
     return list(result.scalars().all())
 
-# Function to get stale scans (running for too long)
+
 async def get_stale_scans(db: AsyncSession, timeout_minutes: int = 60) -> List[Scan]:
     """
     Retrieves scans that have been running for longer than the timeout period.
@@ -309,7 +309,7 @@ async def get_stale_scans(db: AsyncSession, timeout_minutes: int = 60) -> List[S
     )
     return list(result.scalars().all())
 
-# Function to count scans by domain
+
 async def count_scans_by_domain(db: AsyncSession, domain: str) -> int:
     """
     Counts the number of scans for a specific domain.
@@ -322,7 +322,7 @@ async def count_scans_by_domain(db: AsyncSession, domain: str) -> int:
     )
     return result.scalar()
 
-# Helper function to check if scan has started_at timestamp
+
 async def _scan_has_started_at(db: AsyncSession, scan_id: str) -> bool:
     """
     Helper function to check if a scan has a started_at timestamp.

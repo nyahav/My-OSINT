@@ -16,7 +16,7 @@ const ScanDomain: React.FC = () => {
       return;
     }
     try {
-      // Send domain to backend to start scan
+      
       const token = localStorage.getItem("token");
       console.log("Token being sent:", token);
       const res = await fetch(`${API_BASE_URL}/scan/`, {

@@ -1,4 +1,4 @@
-# app/db/models/scan.py
+
 from sqlalchemy import Column, Enum, Integer, String, Boolean, DateTime, Text, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.base import Base 
@@ -18,42 +18,40 @@ class Scan(Base):
 
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     domain = Column(String(255), nullable=False, index=True)
-    status = Column(String(50), nullable=False, default="pending", index=True)  # pending, running, finished, error, cancelled
+    status = Column(String(50), nullable=False, default="pending", index=True)  
     
-    # Tool results stored as JSON
+
     theharvester = Column(JSON, nullable=True)
     amass = Column(JSON, nullable=True)
     subfinder = Column(JSON, nullable=True)
     summary = Column(JSON, nullable=True)
     
     
-    
-    # Error handling
     error_message = Column(Text, nullable=True)
     
-    # Metadata for quick access
+    
     total_subdomains = Column(Integer, default=0)
     total_emails = Column(Integer, default=0)
     total_ips = Column(Integer, default=0)
     total_hosts = Column(Integer, default=0)  
-    # Scan timing
+    
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
-    duration_seconds = Column(Integer, nullable=True)  # Calculated duration for quick queries
+    duration_seconds = Column(Integer, nullable=True)  
     
-    # User relationship (optional - if you want to track which user started the scan)
+    
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     user = relationship("User", back_populates="scans")
     
-    # Scan configuration
-    tools_enabled = Column(JSON, default=lambda: {"theharvester": True, "amass": True, "subfinder": True})  # Which tools to run
-    scan_options = Column(JSON, nullable=True)  # Additional scan options/parameters
     
-    # Status flags
-    is_active = Column(Boolean, default=True)  # For soft deletion
-    is_public = Column(Boolean, default=False)  # If results can be shared publicly
+    tools_enabled = Column(JSON, default=lambda: {"theharvester": True, "amass": True, "subfinder": True}) 
+    scan_options = Column(JSON, nullable=True)  
     
-    # Audit fields following your user model pattern
+    
+    is_active = Column(Boolean, default=True)  
+    is_public = Column(Boolean, default=False)  
+    
+    
     created_by = Column(String(255), nullable=True)
     created_date = Column(DateTime, default=datetime.now, nullable=True)
     updated_by = Column(String(255), nullable=True)

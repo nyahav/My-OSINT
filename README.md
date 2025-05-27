@@ -1,228 +1,108 @@
-# FastAPI + React TypeScript Template
+# 🕵️‍♂️ The OSINT Web Application
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104.0-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react)](https://reactjs.org)
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB.svg?logo=python)](https://www.python.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6.svg?logo=typescript)](https://www.typescriptlang.org)
-[![MongoDB](https://img.shields.io/badge/MongoDB-6-47A248.svg?logo=mongodb)](https://www.mongodb.com)
-[![Redis](https://img.shields.io/badge/Redis-7-DC382D.svg?logo=redis)](https://redis.io)
-[![Docker](https://img.shields.io/badge/Docker-🐋-2496ED.svg?logo=docker)](https://www.docker.com)
-[![Poetry](https://img.shields.io/badge/Poetry-1.6-60A5FA.svg?logo=poetry)](https://python-poetry.org)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+**The OSINT Web Application** is a web-based platform for collecting and analyzing open-source intelligence (OSINT) from publicly available online sources.  
+It provides user management, secure authentication, smart data queries, and an interactive, modern interface.
 
-A modern web application template using FastAPI for the backend API, React TypeScript for the frontend, MongoDB as the database, and Redis for caching.
+---
 
-## Table of Contents
+## 📸 Screenshot
+> 🖼️ A screenshot of the application will appear here
 
-- [Prerequisites](#prerequisites)
-- [Project Setup](#project-setup)
-- [Development Environment](#development-environment)
-  - [Docker Only Setup](#docker-only-setup)
-  - [Hybrid Setup](#hybrid-setup)
-- [Development Commands](#development-commands)
-- [Production Deployment](#production-deployment)
-- [API Documentation](#api-documentation)
+---
 
-## Prerequisites
+## ⚙️ Tech Stack
 
-### Python Setup
+<table>
+    <thead>
+        <tr>
+            <th>Property</th>
+            <th>Badges</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>🎨 Design</td>
+            <td>
+                <a href="https://www.framer.com/motion/">
+                    <img src="https://img.shields.io/badge/Framer%20Motion-%23EF4B4A.svg?style=for-the-badge&logo=framer&logoColor=white" alt="Framer Motion">
+                </a>
+                <a href="https://tailwindcss.com/">
+                    <img src="https://img.shields.io/badge/Tailwind%20CSS-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS">
+                </a>
+            </td>
+        </tr>
+        <tr>
+            <td>📋 Languages & Tools</td>
+            <td>
+                <a href="https://www.typescriptlang.org/">
+                    <img src="https://img.shields.io/badge/TypeScript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+                </a>
+                <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript">
+                    <img src="https://img.shields.io/badge/JavaScript-%23F7DF1E.svg?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript">
+                </a>
+            </td>
+        </tr>
+        <tr>
+            <td>📚 Libraries</td>
+            <td>
+                <a href="https://threejs.org/">
+                    <img src="https://img.shields.io/badge/Three.js-%23000000.svg?style=for-the-badge&logo=three.js&logoColor=white" alt="Three.js">
+                </a>
+                <a href="https://reactjs.org/">
+                    <img src="https://img.shields.io/badge/React-%2320232A.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB" alt="React">
+                </a>
+            </td>
+        </tr>
+        <tr>
+            <td>🚀 Frameworks</td>
+            <td>
+                <a href="https://nextjs.org/">
+                    <img src="https://img.shields.io/badge/Next.js-%23000000.svg?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js">
+                </a>
+            </td>
+        </tr>
+        <tr>
+            <td>📦 Features</td>
+            <td>
+                <a href="https://threejs.org/">
+                    <img src="https://img.shields.io/badge/3D%20Interactive%20Elements-%23000000.svg?style=for-the-badge&logo=three.js&logoColor=white" alt="3D Interactive Elements">
+                </a>
+                <a href="https://framer.com/motion/">
+                    <img src="https://img.shields.io/badge/Animations-%23EF4B4A.svg?style=for-the-badge&logo=framer&logoColor=white" alt="Framer Motion Animations">
+                </a>
+            </td>
+        </tr>
+    </tbody>
+</table>
 
-1. Install Python 3.11
+---
 
-   - Download from [Python Official Website](https://www.python.org/downloads/)
-   - Verify installation: `python --version`
+## 🧠 Backend Stack
 
-2. Install Poetry
-   ```bash
-   curl -sSL https://install.python-poetry.org | python3 -
-   ```
-   Verify installation: `poetry --version`
+- **FastAPI** – A modern, fast web framework based on Python type hints.
+- **Uvicorn[standard]** – A high-performance ASGI server to run FastAPI.
+- **Pydantic** – For data validation and parsing using Python typing.
+- **SQLAlchemy** – A powerful ORM for database interaction.
+- **psycopg2-binary** – PostgreSQL database driver (can be replaced based on your DB).
+    - For **SQLite**: No additional driver is needed (or `aiosqlite` for async support).
+    - For **MySQL**: Use `mysqlclient`.
+- **python-jose[cryptography]** – For handling JWT-based authentication.
+- **passlib[bcrypt]** – For secure password hashing.
+- **python-dotenv** – Loads environment variables from a `.env` file.
+- **Alembic** – For managing database schema migrations.
+- **pytest** – For writing and running unit/integration tests.
 
-### Node.js Setup
+---
 
-1. Install Node.js
+## 🚀 Getting Started
 
-   - Download from [Node.js Official Website](https://nodejs.org/)
-   - Verify installation: `node --version`
+### Registration
+Sign up via the app's registration form using:
+- Username
+- Email
+- Password
 
-2. Install Yarn
-   ```bash
-   npm install -g yarn
-   ```
-   Verify installation: `yarn --version`
-
-### Docker Setup
-
-1. Install Docker and Docker Compose
-   - Follow instructions at [Docker Official Documentation](https://docs.docker.com/get-docker/)
-   - Verify installation:
-     ```bash
-     docker --version
-     docker-compose --version
-     ```
-
-## Project Setup
-
-### Environment Configuration
-
-1. Backend Environment Setup
-
-   ```bash
-   cd backend
-   cp .env-example .env
-   ```
-
-   Configure the following variables in `.env`:
-
-   ```plaintext
-   ENVIRONMENT=production
-   MONGO_URI=mongodb://foo:bar@localhost:27017/  # Use 'mongo' as host if not working
-   MONGO_DB=database
-   REDIS_HOST=localhost  # Use 'redis' as host if not working
-   REDIS_PASSWORD=password
-   JWT_SECRET_KEY=secret
-   ```
-
-2. Database Environment Setup
-   ```bash
-   cd database
-   cp .env-example .env
-   ```
-   Configure the following variables in `.env`:
-   ```plaintext
-   MONGO_INITDB_ROOT_USERNAME=username
-   MONGO_INITDB_ROOT_PASSWORD=password
-   MONGO_INITDB_DATABASE=database
-   MONGO_INITDB_ROOT_EMAIL=user@example.com
-   REDIS_PASSWORD=password
-   ```
-
-## Development Environment
-
-### Docker Only Setup
-
-Run the entire stack using Docker:
-
-```bash
-docker-compose -f docker-compose.yml up --build -d
-```
-
-### Hybrid Setup
-
-Run only MongoDB and Redis in Docker, with local development servers:
-
-1. Start Required Services
-
-   ```bash
-   docker-compose -f docker-compose.yml up mongo redis --build -d
-   ```
-
-2. Setup Backend
-
-   ```bash
-   cd backend
-   poetry install
-   .venv\Scripts\activate
-   ./cmd.sh start  # Alternative: poetry run python -m app.main
-   ```
-
-3. Setup Frontend
-   ```bash
-   cd frontend
-   yarn install
-   yarn start
-   ```
-
-## Development Commands
-
-### Code Formatting
-
-#### Format backend code:
+### Running the Application
 
 ```bash
-cd backend
-./cmd.sh format
-```
-
-#### Format frontend code:
-
-```bash
-cd frontend
-yarn lint
-```
-
-### Service URLs
-
-- Backend API: `http://localhost:8000`
-- Frontend Application: `http://localhost:3000`
-
-## Production Deployment
-
-Deploy the entire stack for production:
-
-```bash
-docker-compose -f docker-compose.prod.yml up --build -d
-```
-
-## API Documentation
-
-When the backend is running, access the API documentation at:
-
-- Swagger UI: `http://localhost:8000`
-- ReDoc: `http://localhost:8000/redoc`
-
-
-
-
-fastapi: Your web framework.
-uvicorn[standard]: The ASGI server to run FastAPI. [standard] installs some optional dependencies for Uvicorn (like httptools and watchfiles) for better performance and development features.
-pydantic: For data validation.
-SQLAlchemy: For database ORM.
-psycopg2-binary: Example database driver for PostgreSQL. Change this if you use a different database.
-For SQLite: No extra driver needed for basic usage, but for async use pip install aiosqlite.
-For MySQL: pip install mysqlclient.
-python-jose[cryptography]: For handling JSON Web Tokens (JWT) for authentication.
-passlib[bcrypt]: For secure password hashing.
-python-dotenv: For loading environment variables (e.g., database connection strings, API keys) from a .env file.
-alembic: For database migrations.
-pytest: For writing and running tests.
-
-
-backend/
-└── app/
-    ├── main.py
-    ├── config.py
-    ├── db/
-    │   ├── base.py
-    │   ├── session.py
-    │   └── models/
-    │       ├── user.py
-    │       └── domain.py
-    ├── schemas/
-    │   ├── user.py
-    │   └── domain.py
-    ├── crud/
-    │   ├── user.py
-    │   └── domain.py
-    ├── routers/
-    │   ├── auth.py
-    │   └── domain.py
-    └── utilities/
-        └── __init__.py
-
-
-        Full Asynchronous SQLAlchemy (Recommended for FastAPI)
-
-
-        Display results more nicely
-
-Add scan progress bar
-
-Protect the results with role-based access (e.g., admin only)
-
-Store results in DB
-
-dood-docker out of docker
-
-Race Condition
+docker-compose up --build

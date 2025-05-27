@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link,  redirect } from 'react-router-dom';
-import { Menu, X } from 'lucide-react'; // Optional: use Heroicons/lucide
+import { Menu, X } from 'lucide-react'; 
 import useAuth from '../../../context/useAuth';
 
 const Navbar = () => {

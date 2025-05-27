@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 from enum import Enum
 
-# Define the Enum within the schemas or import from a central utility if used elsewhere
+
 class ScanStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -23,7 +23,7 @@ class ScanBase(BaseModel):
 
 class ScanCreate(ScanBase):
     """Schema for creating a new scan."""
-    pass # Inherits fields from ScanBase
+    pass 
 
 class ScanUpdate(BaseModel):
     """Schema for updating an existing scan."""
@@ -46,7 +46,7 @@ class ScanUpdate(BaseModel):
 
 class ScanOut(ScanBase):
     """Schema for returning scan details (read-only)."""
-    scan_id: str = Field(..., alias="id", description="Unique identifier of the scan.") # 'alias' if the model field is 'id'
+    scan_id: str = Field(..., alias="id", description="Unique identifier of the scan.")  
     status: ScanStatus = Field(..., description="Current status of the scan.")
     created_date: datetime = Field(..., description="Timestamp when the scan record was created.")
     started_at: Optional[datetime] = Field(None, description="Timestamp when the scan started.")
@@ -69,6 +69,6 @@ class ScanOut(ScanBase):
     updated_date: Optional[datetime] = Field(None, description="Timestamp of the last update.")
     
     class Config:
-        from_attributes = True # Pydantic v2.0+
+        from_attributes = True 
         
-        use_enum_values = True # Ensures enum values are returned as strings
+        use_enum_values = True 

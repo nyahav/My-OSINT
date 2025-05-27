@@ -9,13 +9,11 @@ class SecurityTools:
     def __init__(self):
         self.shared_dir = "/home/app/shared"
         self.tools_container = "security-tools"
-        # הוסף את הקו הזה שחסר
+      
         self.partial_results = {}
     
     async def get_partial_results(self, domain: str) -> Dict[str, Any]:
-        """
-        מתודה לשליפת תוצאות חלקיות לדומיין מסוים
-        """
+       
         return self.partial_results.get(domain, {
             "subdomains": [],
             "emails": [],
@@ -24,9 +22,7 @@ class SecurityTools:
         })
     
     def clear_partial_results(self, domain: str):
-        """
-        ניקוי תוצאות חלקיות לדומיין מסוים
-        """
+      
         if domain in self.partial_results:
             del self.partial_results[domain]
     
@@ -36,7 +32,7 @@ class SecurityTools:
         """
         logger.info(f"Starting Amass scan for domain: {domain}")
         
-        # אתחל תוצאות חלקיות
+      
         self.partial_results[domain] = {
             "subdomains": [],
             "emails": [],
@@ -57,13 +53,11 @@ class SecurityTools:
                 stderr=asyncio.subprocess.PIPE
             )
             
-            # קרא שורות תוך כדי ריצה ושמור תוצאות חלקיות
             subdomains_found = []
             
             try:
                 while True:
                     try:
-                        # קרא שורה עם timeout קצר
                         line = await asyncio.wait_for(
                             process.stdout.readline(), 
                             timeout=10
@@ -74,17 +68,16 @@ class SecurityTools:
                         decoded = line.decode().strip()
                         if decoded and decoded not in subdomains_found:
                             subdomains_found.append(decoded)
-                            # עדכן תוצאות חלקיות
                             self.partial_results[domain]["subdomains"] = subdomains_found
                             logger.debug(f"Found subdomain: {decoded} (total: {len(subdomains_found)})")
                             
                     except asyncio.TimeoutError:
-                        # אם לא קיבלנו שורה חדשה תוך 10 שניות, בדוק אם התהליך עדיין רץ
+                      
                         if process.returncode is not None:
                             break
                         continue
                         
-                # המתן לסיום התהליך
+              
                 await asyncio.wait_for(process.wait(), timeout=timeout)
                 
                 logger.info(f"Amass completed successfully for {domain}. Found {len(subdomains_found)} subdomains.")
@@ -97,7 +90,7 @@ class SecurityTools:
                 }
                 
             except asyncio.TimeoutError:
-                # Timeout - אבל יש לנו תוצאות חלקיות
+              
                 logger.warning(f"Amass timed out for {domain}, returning partial results: {len(subdomains_found)} subdomains")
                 try:
                     process.kill()
@@ -106,7 +99,7 @@ class SecurityTools:
                     pass
                     
                 return {
-                    "success": True,  # עדיין success כי יש תוצאות
+                    "success": True, 
                     "partial": True,
                     "timeout": True,
                     "tool": "amass",
@@ -118,7 +111,7 @@ class SecurityTools:
                 
         except Exception as e:
             logger.exception(f"Exception in Amass for {domain}")
-            # גם במקרה של שגיאה, נחזיר מה שנאסף עד כה
+          
             partial = self.partial_results.get(domain, {})
             return {
                 "success": False,
@@ -133,7 +126,7 @@ class SecurityTools:
         """
         logger.info(f"Starting subfinder scan for domain: {domain}")
         
-        # אתחל תוצאות חלקיות
+     
         self.partial_results[domain] = {
             "subdomains": [],
             "emails": [],
@@ -223,7 +216,7 @@ class SecurityTools:
         """
         logger.info(f"Starting theHarvester scan for domain: {domain}")
         
-        # אתחל תוצאות חלקיות
+     
         self.partial_results[domain] = {
             "subdomains": [],
             "emails": [],
@@ -257,7 +250,7 @@ class SecurityTools:
                     timeout=timeout
                 )
                 
-                # קרא תוצאות מהקובץ
+          
                 results = {"emails": [], "hosts": [], "ips": []}
                 if os.path.exists(api_output_path):
                     try:
@@ -270,7 +263,7 @@ class SecurityTools:
                             if 'ips' in file_results:
                                 results['ips'].extend(file_results['ips'])
                         
-                        # עדכן תוצאות חלקיות
+                      
                         self.partial_results[domain].update(results)
                         
                     except Exception as e:
@@ -295,7 +288,7 @@ class SecurityTools:
                 except:
                     pass
                 
-                # נסה לקרוא תוצאות חלקיות מהקובץ
+         
                 partial_results = {"emails": [], "hosts": [], "ips": []}
                 if os.path.exists(api_output_path):
                     try:
@@ -340,7 +333,6 @@ class SecurityTools:
         Run both tools and combine results
         """
         logger.info(f"Starting combined scan for domain: {domain}")
-        # Run tasks concurrently
         amass_task = self.run_amass(domain)
         theharvester_task = self.run_theharvester(domain)
         subfinder_task = self.run_subfinder(domain) 

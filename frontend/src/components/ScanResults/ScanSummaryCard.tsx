@@ -19,7 +19,7 @@ interface ScanSummaryCardProps {
     total_ips?: number;
   };
   onShowDetails?: () => void;
-  isSummary?: boolean; // פרמטר חדש לזיהוי אם זה summary
+  isSummary?: boolean; 
 }
 
 const ScanSummaryCard: React.FC<ScanSummaryCardProps> = ({
@@ -31,7 +31,7 @@ const ScanSummaryCard: React.FC<ScanSummaryCardProps> = ({
   onShowDetails,
   isSummary = false,
 }) => {
-  // אם זה summary, השתמש בנתונים מה-summary, אחרת מה-results
+  
   const displayData =
     isSummary && summary
       ? {
@@ -39,22 +39,23 @@ const ScanSummaryCard: React.FC<ScanSummaryCardProps> = ({
           emails: summary.total_emails ?? 0,
           hosts: summary.total_hosts ?? 0,
           ips: summary.total_ips ?? 0,
-        }
+      }
       : {
-          subdomains: results?.subdomains?.length ?? 0,
-          emails: results?.emails?.length ?? 0,
-          hosts: results?.hosts?.length ?? 0,
-          ips: results?.ips?.length ?? 0,
-        };
+        subdomains: results?.subdomains?.length ?? 0,
+        emails: results?.emails?.length ?? 0,
+        hosts: results?.hosts?.length ?? 0,
+        ips: results?.ips?.length ?? 0,
+      };
 
   return (
     <div className="bg-black/20 p-4 rounded-lg shadow flex flex-col gap-2 mb-4">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-2">
-        <span className="font-bold text-lg text-app-primary">
-          {isSummary ? "Total Results Summary" : domain}
-        </span>
         {!isSummary && (
           <>
+          <span className="font-bold text-lg text-app-primary">
+            {domain}
+          </span>
+          
             <span className="text-sm text-app-secondary">
               Started: {startedAt ? new Date(startedAt).toLocaleString() : "-"}
             </span>

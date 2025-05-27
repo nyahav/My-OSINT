@@ -8,7 +8,7 @@ const axiosInstance = axios.create({
   },
 });
 
-// Add a request interceptor for token injection
+
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -20,7 +20,7 @@ axiosInstance.interceptors.request.use(
   (err) => Promise.reject(err)
 );
 
-// Add a response interceptor for error handling
+
 axiosInstance.interceptors.response.use(
   (response) => response,
   (err) => {

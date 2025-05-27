@@ -20,7 +20,7 @@ app = FastAPI(
     root_path=settings.root_path,
 )
 
-# CORS Middleware
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -36,10 +36,10 @@ app.add_middleware(
     ],
 )
 
-# Session Middleware
+
 app.add_middleware(SessionMiddleware, secret_key=secrets.token_hex(16))
 
-# Custom Audit Middleware
+
 @app.middleware("http")
 async def audit_middleware(request: Request, call_next):
     start_time = time.time()
@@ -48,7 +48,7 @@ async def audit_middleware(request: Request, call_next):
     response.headers["X-Process-Time"] = process_time
     return response
 
-# Include Routers
+
 app.include_router(
     auth.router,
     prefix="/auth",
@@ -61,7 +61,7 @@ app.include_router(
     tags=["scan"],
 )
 
-# --- NEW: Database Initialization on Startup ---
+
 @app.on_event("startup")
 async def on_startup():
     """
@@ -72,7 +72,7 @@ async def on_startup():
     from app.db.models import user, scan
     await init_db()
     print("Database initialization complete.")
-# --- END NEW ---
+
 
 
 if __name__ == "__main__":
