@@ -1,7 +1,7 @@
 import secrets
 import time
 import uvicorn
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from app.config import app_description, app_name, app_title, app_version, settings
@@ -48,6 +48,10 @@ async def audit_middleware(request: Request, call_next):
     response.headers["X-Process-Time"] = process_time
     return response
 
+# --- Health Check Endpoint ---
+@app.get("/health", status_code=status.HTTP_200_OK)
+async def health_check():
+    return {"status": "ok", "message": "API is healthy"}
 
 app.include_router(
     auth.router,

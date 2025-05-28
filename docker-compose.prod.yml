@@ -13,15 +13,17 @@ services:
     ports:
       - "5432:5432" 
     volumes:
+      
       - pgdata:/var/lib/postgresql/data
     networks:
       - app-network
     healthcheck: 
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"] 
+      test: ["CMD-SHELL", "pg_isready -U postgres  -d postgres "] 
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 30s 
+    
 
   tools:
     image: ${DOCKER_HUB_USERNAME}/security-tools:latest
@@ -40,7 +42,7 @@ services:
       start_period: 15s 
 
   api:
-    image: ${DOCKER_HUB_USERNAME}/osint-api:latest
+    image: ${DOCKER_HUB_USERNAME}/osint-api-1:latest
     ports:
       - "${API_PORT}:8000" 
     env_file: 
@@ -53,6 +55,7 @@ services:
     volumes:
       - shared-data:/home/app/shared
       - /var/run/docker.sock:/var/run/docker.sock 
+      - ./tools:/home/app/tools
     group_add:
       - "0" 
     depends_on:
@@ -71,9 +74,9 @@ services:
       start_period: 20s
 
   frontend:
-    image: ${DOCKER_HUB_USERNAME}/osint-frontend:latest
+    image: ${DOCKER_HUB_USERNAME}/osint-fronted-1:latest
     ports:
-      - "80:80"
+      - "3000:80"
     env_file: 
       - ./docker-compose.prod.env
     depends_on:

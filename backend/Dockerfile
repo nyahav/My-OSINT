@@ -33,6 +33,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ./app ./app
 COPY ./pyproject.toml .
+COPY . /home/app
+
 
 RUN mkdir -p /home/app/shared && chown -R appuser:appgroup /home/app/shared
 

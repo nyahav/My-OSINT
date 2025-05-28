@@ -165,3 +165,14 @@ git clone https://github.com/nyahav/My-OSINT.git
 (cd My-OSINT)
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml build 
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+or can use:
+docker compose --env-file docker-compose.prod.env -f docker-compose.prod.yml up -d --pull always
+
+
+that will download the docker images and run them
+
+## DockerHub images:
+https://hub.docker.com/repository/docker/1122335588/osint-fronted-1
+https://hub.docker.com/repository/docker/1122335588/osint-api-1
+https://hub.docker.com/repository/docker/1122335588/security-tools
