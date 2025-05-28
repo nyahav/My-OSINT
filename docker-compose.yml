@@ -9,6 +9,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+      OSINT_USER_PASSWORD: password
       POSTGRES_DB: postgres
       
     ports:

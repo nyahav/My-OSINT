@@ -7,8 +7,8 @@ app_version = "0.1.0"
 
 class Settings:
     DB_TYPE: str = os.getenv("DB_TYPE", "postgres")  
-    DB_USER: str = os.getenv("DB_USER", "postgres")
-    DB_PASS: str = os.getenv("DB_PASS", "password")
+    DB_USER: str = os.getenv("DB_USER")
+    DB_PASS: str = os.getenv("DB_PASS")
     DB_HOST: str = os.getenv("DB_HOST", "localhost")
    
     DB_PORT: str = os.getenv("DB_PORT", "3306" if DB_TYPE == "mysql" else "5432")

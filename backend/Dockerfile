@@ -11,6 +11,9 @@ WORKDIR /app
 
 RUN poetry export -f requirements.txt --output requirements.txt --without-hashes --without=dev
 
+COPY ./tests /app/tests
+RUN pip install pytest
+
 FROM python:3.11-alpine
 
 RUN apk add --no-cache \

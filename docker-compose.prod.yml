@@ -5,42 +5,80 @@ services:
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    env_file: 
+      - ./docker-compose.prod.env
+    ports:
+      - "5432:5432" 
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
       - app-network
+    healthcheck: 
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"] 
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s 
 
   tools:
-    image: yourregistry/security-tools:latest
-    container_name: security-tools
+    image: ${DOCKER_HUB_USERNAME}/security-tools:latest
+    container_name: ${TOOLS_CONTAINER_NAME}
     volumes:
       - shared-data:/home/tools/shared
     networks:
       - app-network
     restart: always
+    command: tail -f /dev/null 
+    healthcheck: 
+      test: ["CMD-SHELL", "which amass || exit 1"] 
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s 
 
   api:
-    image: yourregistry/osint-api:latest
+    image: ${DOCKER_HUB_USERNAME}/osint-api:latest
+    ports:
+      - "${API_PORT}:8000" 
+    env_file: 
+      - ./docker-compose.prod.env
     environment:
-      - TOOLS_CONTAINER_NAME=security-tools
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - TOOLS_CONTAINER_NAME=${TOOLS_CONTAINER_NAME}
+      - DEBUG=${DEBUG}
     volumes:
       - shared-data:/home/app/shared
+      - /var/run/docker.sock:/var/run/docker.sock 
+    group_add:
+      - "0" 
     depends_on:
-      - db
-      - tools
+      db:
+        condition: service_healthy
+      tools:
+        condition: service_healthy 
     networks:
       - app-network
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"] 
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   frontend:
-    image: yourregistry/osint-frontend:latest
+    image: ${DOCKER_HUB_USERNAME}/osint-frontend:latest
     ports:
       - "80:80"
+    env_file: 
+      - ./docker-compose.prod.env
     depends_on:
-      - api
+      api:
+        condition: service_healthy 
     networks:
       - app-network
     restart: always
